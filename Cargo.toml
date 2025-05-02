@@ -4,5 +4,8 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-chrono = "0.4.41"
-sodiumoxide = "0.2.6"
+ed25519-dalek = { version = "2", features = ["rand_core", "digest", "zeroize"] }
+rand_core = "0.6"
+rand = "0.8"
+hex = "0.4"
+base64 = "0.21"
