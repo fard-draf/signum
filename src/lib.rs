@@ -1,3 +1,5 @@
 pub mod cli;
-pub mod crypto;
+pub mod core;
 pub mod error;
+pub mod test;
+pub mod user;

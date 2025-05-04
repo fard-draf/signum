@@ -1,59 +1,141 @@
-use std::error::Error as StdError;
-use std::fmt::Display;
+use argon2::{Error, password_hash};
+use std::path::PathBuf;
+use thiserror::Error;
 
-use base64::DecodeError;
 use ed25519_dalek::SignatureError as DalekSignatureError;
-use ed25519_dalek::ed25519::Error as DalekError;
-use inquire::InquireError;
-use std::io::Error as IOError;
 
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub enum AppError {
-    DalekSignatureError(DalekSignatureError),
-    IOError(std::io::Error),
-    InquireError(inquire::error::InquireError),
-    DecodeError(base64::DecodeError),
-    InvalidKey,
-    KeyLength,
-    InvalidPath,
+    #[error(transparent)]
+    User(#[from] ErrUser),
+
+    #[error(transparent)]
+    Password(#[from] ErrPassword),
+
+    #[error(transparent)]
+    RandCore(#[from] ErrRandCore),
+
+    #[error(transparent)]
+    Base64(#[from] ErrBase64),
+
+    #[error(transparent)]
+    Path(#[from] ErrPath),
+
+    #[error(transparent)]
+    Cypher(#[from] ErrCypher),
+
+    #[error(transparent)]
+    IO(#[from] ErrIO),
+
+    #[error(transparent)]
+    Dalek(#[from] ErrDalek),
+
+    #[error(transparent)]
+    Inquire(#[from] ErrInquire),
+
+    #[error(transparent)]
+    Argon2(#[from] ErrArgon2),
+
+    #[error("Unknown fatal error")]
     Error,
 }
 
-impl Display for AppError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::DalekSignatureError(e) => write!(f, "Signature error: {}", e),
-            Self::IOError(e) => write!(f, "Input error: {}", e),
-            Self::InquireError(e) => write!(f, "Inquire Error: {}", e),
-            Self::DecodeError(e) => write!(f, "Decode error: {}", e),
-            Self::InvalidKey => write!(f, "Invalid key"),
-            Self::KeyLength => write!(f, "Invalid key lenght"),
-            Self::InvalidPath => write!(f, "Invalid path"),
-            Self::Error => panic!(),
-        }
-    }
+// --- sous-enums spécifiques ---
+
+#[derive(Debug, Error)]
+pub enum ErrUser {
+    #[error("Username is too short")]
+    InvalidNameTooShort,
+
+    #[error("Username is too long")]
+    InvalidNameTooLong,
+
+    #[error("User already exists")]
+    AlreadyExist,
+
+    #[error("User not found")]
+    UserNotFound,
+
+    #[error("Invalid characters")]
+    InvalidCharacters,
 }
 
-impl From<DalekSignatureError> for AppError {
-    fn from(value: DalekSignatureError) -> Self {
-        AppError::DalekSignatureError(value)
-    }
+#[derive(Debug, Error)]
+pub enum ErrPassword {
+    #[error("Password is too short")]
+    PasswordTooShort,
+
+    #[error("Password is too long")]
+    PasswordTooLong,
+
+    #[error("Password is to weak")]
+    PasswordTooWeak,
+
+    #[error("Invalid characters")]
+    InvalidCharacters,
+
+    #[error("Missing special characters")]
+    MissingSpecialCharacters,
+
+    #[error("Not enought digits")]
+    NotEnoughtDigits,
 }
 
-impl From<IOError> for AppError {
-    fn from(value: IOError) -> Self {
-        AppError::IOError(value)
-    }
+#[derive(Debug, Error)]
+pub enum ErrRandCore {
+    #[error("RandCore error: {0}")]
+    RandCoreError(#[from] rand_core::Error),
 }
 
-impl From<InquireError> for AppError {
-    fn from(value: InquireError) -> Self {
-        AppError::InquireError(value)
-    }
+#[derive(Debug, Error)]
+pub enum ErrBase64 {
+    #[error("Base64 decode error: {0}")]
+    DecodeError(#[from] base64::DecodeError),
 }
 
-impl From<DecodeError> for AppError {
-    fn from(value: base64::DecodeError) -> Self {
-        AppError::DecodeError(value)
-    }
+#[derive(Debug, Error)]
+pub enum ErrPath {
+    #[error("Invalid path")]
+    InvalidPath,
+    #[error("Forbidden characters")]
+    ForbiddenCharacters,
+}
+
+#[derive(Debug, Error)]
+pub enum ErrCypher {
+    #[error("Invalid key")]
+    InvalidKey,
+
+    #[error("Invalid key length")]
+    KeyLength,
+}
+
+#[derive(Debug, Error)]
+pub enum ErrIO {
+    #[error("I/O error: {0}")]
+    IoError(#[from] std::io::Error),
+}
+
+#[derive(Debug, Error)]
+pub enum ErrDalek {
+    #[error("Signature error: {0}")]
+    Signature(#[from] DalekSignatureError),
+}
+
+#[derive(Debug, Error)]
+pub enum ErrInquire {
+    #[error("Inquire error: {0}")]
+    InquireError(#[from] inquire::error::InquireError),
+}
+
+#[derive(Debug, Error)]
+pub enum ErrArgon2 {
+    #[error("Argon2 error")]
+    ArgErr(argon2::Error),
+
+    #[error("Password hash error")]
+    PasswordHashError(password_hash::Error),
+
+    #[error("Unauthorized")]
+    Unauthorized,
 }
