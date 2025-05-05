@@ -1,14 +1,11 @@
-use argon2::{
-    Argon2,
-    password_hash::{PasswordHasher, SaltString},
-};
+use argon2::{Argon2, password_hash::PasswordHasher};
 use chacha20poly1305::{
     AeadCore, XChaCha20Poly1305, XNonce,
     aead::{Aead, KeyInit, OsRng},
 };
 
 use crate::{
-    domain::user::{entities::User, passwords::UserPassword},
+    domain::user::entities::User,
     error::{AppError, ErrArgon2, ErrCypher},
 };
 

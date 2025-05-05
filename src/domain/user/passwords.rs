@@ -8,7 +8,7 @@ use zeroize::{self, Zeroize};
 
 use crate::error::{AppError, ErrArgon2, ErrPassword};
 
-#[derive(PartialEq, Eq, PartialOrd, BorshSerialize, BorshDeserialize, Debug)]
+#[derive(PartialEq, Eq, PartialOrd, BorshSerialize, BorshDeserialize, Debug, Clone)]
 pub struct UserPassword {
     hashed: String,
 }

@@ -7,11 +7,25 @@ use crate::{
     domain::user::{file_path::UserFilePath, passwords::UserPassword},
     error::{AppError, ErrCypher, ErrUser},
 };
+
+#[derive(BorshSerialize, BorshDeserialize)]
+pub struct UserMetadata {
+    pub name: UserName,
+    pub cypher_salt: String,
+}
+
+#[derive(BorshSerialize, BorshDeserialize)]
+pub struct UserSecureData {
+    pub password: UserPassword,
+    pub file_path: UserFilePath,
+}
+
 impl Debug for User {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "user_name: {}", self.name)
     }
 }
+
 #[derive(PartialEq, Eq, PartialOrd, BorshSerialize, BorshDeserialize)]
 pub struct User {
     pub name: UserName,
@@ -35,13 +49,27 @@ impl User {
         }
     }
 
+    pub fn get_metadata(&self) -> UserMetadata {
+        UserMetadata {
+            name: self.name.clone(),
+            cypher_salt: self.cypher_salt.clone(),
+        }
+    }
+
+    pub fn get_secure_data(&self) -> UserSecureData {
+        UserSecureData {
+            password: self.password.clone(),
+            file_path: self.file_path.clone(),
+        }
+    }
+
     pub fn get_salt(&self) -> Result<SaltString, AppError> {
         SaltString::from_b64(&self.cypher_salt)
             .map_err(|_| AppError::Cypher(ErrCypher::InvalidSalt))
     }
 }
 
-#[derive(PartialEq, Eq, PartialOrd, Ord, BorshSerialize, BorshDeserialize, Debug)]
+#[derive(PartialEq, Eq, PartialOrd, Ord, Clone, BorshSerialize, BorshDeserialize, Debug)]
 pub struct UserName {
     pub name: String,
 }

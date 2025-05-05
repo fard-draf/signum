@@ -5,6 +5,7 @@ use std::path::PathBuf;
 use crate::domain::user::entities::UserName;
 use crate::error::{AppError, ErrPath};
 
+#[derive(Clone)]
 pub struct AppConfig {
     pub base_directory: PathBuf,
     pub app_name: String,

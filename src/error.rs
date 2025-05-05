@@ -117,8 +117,20 @@ pub enum ErrPath {
     #[error("Access denied")]
     AccessDenied,
 
+    #[error("Read Error")]
+    ReadError,
+
+    #[error("Write Error")]
+    WriteError,
+
     #[error("Failed to change permissions")]
     PermissionChangeFailed,
+
+    #[error("Relative path not allowed")]
+    RelativePath,
+
+    #[error("File not found")]
+    FileNotFound,
 }
 
 #[derive(Debug, Error)]

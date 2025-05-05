@@ -1,11 +1,14 @@
 use borsh::{BorshDeserialize, BorshSerialize};
-use std::path::PathBuf;
+use std::path::Path;
 
 use crate::{
-    domain::{ports::config::AppConfig, user::entities::UserName},
+    domain::{
+        ports::{config::AppConfig, fs::FileSystem},
+        user::entities::UserName,
+    },
     error::{AppError, ErrPath},
 };
-#[derive(PartialEq, Eq, PartialOrd, Ord, BorshSerialize, BorshDeserialize)]
+#[derive(PartialEq, Eq, PartialOrd, Ord, BorshSerialize, BorshDeserialize, Clone)]
 pub struct UserFilePath {
     pub path: String,
 }
@@ -35,14 +38,34 @@ impl UserFilePath {
         Ok(UserFilePath { path })
     }
 
-    pub fn validate(&self, config: &AppConfig) -> Result<(), AppError> {
-        let path = PathBuf::from(&self.path);
+    pub fn validate<F: FileSystem>(&self, config: &AppConfig, fs: &F) -> Result<(), AppError> {
+        let base_dir = config.base_directory.to_string_lossy().into_owned();
 
-        // if let Some(parent) = path.parent() {
-        //     if !parent.exists() {
-        //         fs::
-        //     }
-        // }
+        if fs.file_exists(&self.path) {
+            match fs.canonicalize_path(&self.path) {
+                Ok(canonical_path) => {
+                    if !fs.is_path_in_directory(&canonical_path, &base_dir)? {
+                        return Err(AppError::Path(ErrPath::PathTraversal));
+                    }
+                }
+                Err(_) => return Err(AppError::Path(ErrPath::InvalidPath)),
+            }
+        } else if let Some(parent) = Path::new(&self.path).parent() {
+            let parent_str = parent.to_string_lossy().into_owned();
+            if fs.file_exists(&parent_str) {
+                match fs.canonicalize_path(&parent_str) {
+                    Ok(canonical_parent) => {
+                        if !fs.is_path_in_directory(&canonical_parent, &base_dir)? {
+                            return Err(AppError::Path(ErrPath::PathTraversal));
+                        }
+                    }
+                    Err(_) => return Err(AppError::Path(ErrPath::InvalidPath)),
+                }
+            } else {
+                fs.create_directory(&parent_str)?;
+            }
+        }
+
         Ok(())
     }
 }
