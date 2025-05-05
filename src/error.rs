@@ -1,7 +1,5 @@
-use argon2::{Error, password_hash};
-use borsh::error::*;
+use argon2::password_hash;
 use ed25519_dalek::SignatureError as DalekSignatureError;
-use std::path::PathBuf;
 use thiserror::Error;
 
 #[derive(Debug, Error)]
@@ -100,8 +98,27 @@ pub enum ErrBase64 {
 pub enum ErrPath {
     #[error("Invalid path")]
     InvalidPath,
+
     #[error("Forbidden characters")]
     ForbiddenCharacters,
+
+    #[error("Directory not found")]
+    DirectoryNotFound,
+
+    #[error("Failed to create directory")]
+    DirectoryCreationFailed,
+
+    #[error("Path traversal detected")]
+    PathTraversal,
+
+    #[error("Empty filename")]
+    EmptyFilename,
+
+    #[error("Access denied")]
+    AccessDenied,
+
+    #[error("Failed to change permissions")]
+    PermissionChangeFailed,
 }
 
 #[derive(Debug, Error)]

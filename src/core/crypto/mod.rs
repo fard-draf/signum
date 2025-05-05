@@ -1,3 +1,4 @@
 pub mod asym;
-pub mod signer;
+pub mod hash;
 pub mod sym;
+pub mod utils;

@@ -8,8 +8,8 @@ use chacha20poly1305::{
 };
 
 use crate::{
+    domain::user::{entities::User, passwords::UserPassword},
     error::{AppError, ErrArgon2, ErrCypher},
-    user::domain::{User, UserPassword},
 };
 
 pub fn encrypt_data(plaintxt: &[u8], key: &[u8; 32]) -> Result<Vec<u8>, AppError> {

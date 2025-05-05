@@ -1,7 +1,11 @@
 #[cfg(test)]
 mod tests {
     use crate::core::crypto::sym::derive_key_from_password;
-    use crate::user::domain::{User, UserFilePath, UserName, UserPassword};
+    use crate::domain::user::{
+        entities::{User, UserName},
+        file_path::UserFilePath,
+        passwords::UserPassword,
+    };
     use argon2::password_hash::SaltString;
 
     #[test]
