@@ -1,8 +1,8 @@
 use argon2::{Error, password_hash};
+use borsh::error::*;
+use ed25519_dalek::SignatureError as DalekSignatureError;
 use std::path::PathBuf;
 use thiserror::Error;
-
-use ed25519_dalek::SignatureError as DalekSignatureError;
 
 #[derive(Debug, Error)]
 pub enum AppError {
@@ -79,6 +79,9 @@ pub enum ErrPassword {
 
     #[error("Not enought digits")]
     NotEnoughtDigits,
+
+    #[error("Unvalid password")]
+    InvalidPassword,
 }
 
 #[derive(Debug, Error)]
@@ -108,6 +111,30 @@ pub enum ErrCypher {
 
     #[error("Invalid key length")]
     KeyLength,
+
+    #[error("Invalid salt")]
+    InvalidSalt,
+
+    #[error("Missing hash")]
+    MissingHash,
+
+    #[error("Borsh error")]
+    BorshError,
+
+    #[error("Write error")]
+    WriteError,
+
+    #[error("Read error")]
+    ReadError,
+
+    #[error("Encryption failed")]
+    EncryptionFailed,
+
+    #[error("Decryption failed")]
+    DecryptionFailed,
+
+    #[error("Invalid data")]
+    InvalidData,
 }
 
 #[derive(Debug, Error)]
@@ -138,4 +165,7 @@ pub enum ErrArgon2 {
 
     #[error("Unauthorized")]
     Unauthorized,
+
+    #[error("Unable to verify password")]
+    UnableToVerifyPassword,
 }
