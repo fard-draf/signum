@@ -4,13 +4,15 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-ed25519-dalek = { version = "2", features = ["rand_core", "digest", "zeroize"] }
+ed25519-dalek = { version = "2", features = ["rand_core", "digest"] }
 rand_core = "0.6"
 rand = "0.8"
 hex = "0.4"
-base64 = "0.21"
+base64 = "0.22"
 inquire = "0.7.5"
 uuid = "1.16.0"
 borsh = { version = "1.5", features = ["derive"] }
 argon2 = "0.5.3"
 thiserror = "2.0.12"
+zeroize = "1.8.1"
+chacha20poly1305 = { version = "0.10.1" }
