@@ -20,7 +20,7 @@ pub enum AppError {
     Path(#[from] ErrPath),
 
     #[error(transparent)]
-    Cypher(#[from] ErrCypher),
+    Encrypt(#[from] ErrEncrypt),
 
     #[error(transparent)]
     IO(#[from] ErrIO),
@@ -134,7 +134,7 @@ pub enum ErrPath {
 }
 
 #[derive(Debug, Error)]
-pub enum ErrCypher {
+pub enum ErrEncrypt {
     #[error("Invalid key")]
     InvalidKey,
 

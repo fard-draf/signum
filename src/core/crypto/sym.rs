@@ -1,13 +1,13 @@
+use crate::{
+    domain::user::entities::User,
+    error::{AppError, ErrArgon2, ErrEncrypt},
+};
 use argon2::{Argon2, password_hash::PasswordHasher};
 use chacha20poly1305::{
     AeadCore, XChaCha20Poly1305, XNonce,
     aead::{Aead, KeyInit, OsRng},
 };
-
-use crate::{
-    domain::user::entities::User,
-    error::{AppError, ErrArgon2, ErrCypher},
-};
+use zeroize;
 
 pub fn encrypt_data(plaintxt: &[u8], key: &[u8; 32]) -> Result<Vec<u8>, AppError> {
     let cipher = XChaCha20Poly1305::new(key.into());
@@ -15,7 +15,7 @@ pub fn encrypt_data(plaintxt: &[u8], key: &[u8; 32]) -> Result<Vec<u8>, AppError
 
     let mut ciphertxt = cipher
         .encrypt(&nonce, plaintxt)
-        .map_err(|_| AppError::Cypher(ErrCypher::EncryptionFailed))?;
+        .map_err(|_| AppError::Encrypt(ErrEncrypt::EncryptionFailed))?;
 
     let mut result = nonce.to_vec();
     result.append(&mut ciphertxt);
@@ -24,7 +24,7 @@ pub fn encrypt_data(plaintxt: &[u8], key: &[u8; 32]) -> Result<Vec<u8>, AppError
 
 pub fn decrypt_data(encrypted_data: &[u8], key: &[u8; 32]) -> Result<Vec<u8>, AppError> {
     if encrypted_data.len() < 24 {
-        return Err(AppError::Cypher(ErrCypher::InvalidData));
+        return Err(AppError::Encrypt(ErrEncrypt::InvalidData));
     }
 
     let (nonce_bytes, ciphertxt) = encrypted_data.split_at(24);
@@ -33,7 +33,7 @@ pub fn decrypt_data(encrypted_data: &[u8], key: &[u8; 32]) -> Result<Vec<u8>, Ap
     let cipher = XChaCha20Poly1305::new(key.into());
     cipher
         .decrypt(nonce, ciphertxt)
-        .map_err(|_| AppError::Cypher(ErrCypher::DecryptionFailed))
+        .map_err(|_| AppError::Encrypt(ErrEncrypt::DecryptionFailed))
 }
 
 pub fn derive_key_from_password(raw_password: &str, user: &User) -> Result<[u8; 32], AppError> {
@@ -45,7 +45,9 @@ pub fn derive_key_from_password(raw_password: &str, user: &User) -> Result<[u8; 
         .hash_password(raw_password.as_bytes(), &salt)
         .map_err(|e| AppError::Argon2(ErrArgon2::PasswordHashError(e)))?;
 
-    let raw_hash = hash.hash.ok_or(AppError::Cypher(ErrCypher::MissingHash))?;
+    let raw_hash = hash
+        .hash
+        .ok_or(AppError::Encrypt(ErrEncrypt::MissingHash))?;
     let mut key = [0u8; 32];
     key.copy_from_slice(raw_hash.as_bytes());
     Ok(key)

@@ -7,7 +7,7 @@ use crate::{
             file_path::UserFilePath,
         },
     },
-    error::{AppError, ErrCypher, ErrUser},
+    error::{AppError, ErrEncrypt, ErrUser},
 };
 
 use borsh;
@@ -28,19 +28,28 @@ impl<F: FileSystem> UserRepository for UserFileRepository<F> {
     fn save(&self, user: &User, key: &[u8; 32]) -> Result<(), AppError> {
         user.file_path.validate(&self.config, &self.fs)?;
 
-        let metadata_path = format!("{}.meta", user.file_path.path);
-        let secure_path = user.file_path.path.clone();
+        {
+            let mut metadata_path = format!("{}.meta", user.file_path.path);
+            let mut metadata = user.get_metadata();
+            let mut metadata_bytes =
+                borsh::to_vec(&metadata).map_err(|_| AppError::Encrypt(ErrEncrypt::BorshError))?;
+            metadata.zeroize();
+            self.fs.write_file(&metadata_path, &metadata_bytes)?;
+            metadata_bytes.zeroize();
+            metadata_path.zeroize();
+        }
 
-        let metadata = user.get_metadata();
-        let metadata_bytes =
-            borsh::to_vec(&metadata).map_err(|_| AppError::Cypher(ErrCypher::BorshError))?;
-        self.fs.write_file(&metadata_path, &metadata_bytes)?;
-
-        let secure_data = user.get_secure_data();
-        let secure_bytes =
-            borsh::to_vec(&secure_data).map_err(|_| AppError::Cypher(ErrCypher::BorshError))?;
-        let encrypted = encrypt_data(&secure_bytes, key)?;
-        self.fs.write_file(&secure_path, &encrypted)?;
+        {
+            let mut secure_path = user.file_path.path.clone();
+            let mut secure_data = user.get_secure_data();
+            let mut secure_bytes = borsh::to_vec(&secure_data)
+                .map_err(|_| AppError::Encrypt(ErrEncrypt::BorshError))?;
+            let encrypted = encrypt_data(&secure_bytes, key)?;
+            self.fs.write_file(&secure_path, &encrypted)?;
+            secure_path.zeroize();
+            secure_data.zeroize();
+            secure_bytes.zeroize();
+        }
 
         Ok(())
     }
@@ -58,40 +67,45 @@ impl<F: FileSystem> UserRepository for UserFileRepository<F> {
             return Err(AppError::User(ErrUser::UserNotFound));
         }
 
-        let metadata_bytes = self.fs.read_file(&metadata_path)?;
+        let mut metadata_bytes = self.fs.read_file(&metadata_path)?;
         let metadata: UserMetadata = borsh::BorshDeserialize::try_from_slice(&metadata_bytes)
-            .map_err(|_| AppError::Cypher(ErrCypher::BorshError))?;
+            .map_err(|_| AppError::Encrypt(ErrEncrypt::BorshError))?;
+        metadata_bytes.zeroize();
 
         if !self.fs.file_exists(&secure_path) {
-            return Err(AppError::Cypher(ErrCypher::InvalidData));
+            return Err(AppError::Encrypt(ErrEncrypt::InvalidData));
         }
 
         let mut encrypted = self.fs.read_file(&secure_path)?;
         let mut decrypted = decrypt_data(&encrypted, key)?;
-
-        let secure_data: UserSecureData = borsh::BorshDeserialize::try_from_slice(&decrypted)
-            .map_err(|_| AppError::Cypher(ErrCypher::DecryptionFailed))?;
-
         encrypted.zeroize();
+
+        let mut secure_data: UserSecureData =
+            borsh::BorshDeserialize::try_from_slice(&decrypted)
+                .map_err(|_| AppError::Encrypt(ErrEncrypt::DecryptionFailed))?;
         decrypted.zeroize();
 
         let file_path = UserFilePath::new(secure_path)?;
 
-        Ok(User {
+        let user = User {
             name: metadata.name,
-            cypher_salt: metadata.cypher_salt,
+            cypher_salt: metadata.user_salt,
             password: secure_data.password,
             file_path,
-        })
+        };
+        secure_data.file_path.zeroize();
+
+        Ok(user)
     }
 
     fn exists(&self, username: &UserName) -> Result<bool, AppError> {
-        let base_path = self
+        let mut base_path = self
             .config
             .get_user_data_path(username)
             .to_string_lossy()
             .into_owned();
         let metadata_path = format!("{}.meta", base_path);
+        base_path.zeroize();
 
         Ok(self.fs.file_exists(&metadata_path))
     }

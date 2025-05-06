@@ -1,5 +1,6 @@
 use borsh::{BorshDeserialize, BorshSerialize};
 use std::path::Path;
+use zeroize::Zeroize;
 
 use crate::{
     domain::{
@@ -11,6 +12,12 @@ use crate::{
 #[derive(PartialEq, Eq, PartialOrd, Ord, BorshSerialize, BorshDeserialize, Clone)]
 pub struct UserFilePath {
     pub path: String,
+}
+
+impl Zeroize for UserFilePath {
+    fn zeroize(&mut self) {
+        self.path.zeroize();
+    }
 }
 
 impl UserFilePath {

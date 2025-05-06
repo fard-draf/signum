@@ -5,19 +5,33 @@ use zeroize::{self, Zeroize};
 
 use crate::{
     domain::user::{file_path::UserFilePath, passwords::UserPassword},
-    error::{AppError, ErrCypher, ErrUser},
+    error::{AppError, ErrEncrypt, ErrUser},
 };
 
 #[derive(BorshSerialize, BorshDeserialize)]
 pub struct UserMetadata {
     pub name: UserName,
-    pub cypher_salt: String,
+    pub user_salt: String,
+}
+
+impl Zeroize for UserMetadata {
+    fn zeroize(&mut self) {
+        self.user_salt.zeroize();
+        self.name.zeroize();
+    }
 }
 
 #[derive(BorshSerialize, BorshDeserialize)]
 pub struct UserSecureData {
     pub password: UserPassword,
     pub file_path: UserFilePath,
+}
+
+impl Zeroize for UserSecureData {
+    fn zeroize(&mut self) {
+        self.password.zeroize();
+        self.file_path.zeroize();
+    }
 }
 
 impl Debug for User {
@@ -52,7 +66,7 @@ impl User {
     pub fn get_metadata(&self) -> UserMetadata {
         UserMetadata {
             name: self.name.clone(),
-            cypher_salt: self.cypher_salt.clone(),
+            user_salt: self.cypher_salt.clone(),
         }
     }
 
@@ -65,13 +79,19 @@ impl User {
 
     pub fn get_salt(&self) -> Result<SaltString, AppError> {
         SaltString::from_b64(&self.cypher_salt)
-            .map_err(|_| AppError::Cypher(ErrCypher::InvalidSalt))
+            .map_err(|_| AppError::Encrypt(ErrEncrypt::InvalidSalt))
     }
 }
 
 #[derive(PartialEq, Eq, PartialOrd, Ord, Clone, BorshSerialize, BorshDeserialize, Debug)]
 pub struct UserName {
     pub name: String,
+}
+
+impl Zeroize for UserName {
+    fn zeroize(&mut self) {
+        self.name.zeroize();
+    }
 }
 
 impl UserName {

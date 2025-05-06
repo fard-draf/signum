@@ -2,6 +2,8 @@ use std::env;
 use std::fs;
 use std::path::PathBuf;
 
+use zeroize::Zeroize;
+
 use crate::domain::user::entities::UserName;
 use crate::error::{AppError, ErrPath};
 
@@ -41,7 +43,6 @@ impl AppConfig {
                 return Err(AppError::Path(ErrPath::DirectoryNotFound));
             }
         } else if cfg!(target_os = "macos") {
-            // macOS: ~/Library/Application Support/
             if let Some(home) = env::var_os("HOME") {
                 let mut path = PathBuf::from(home);
                 path.push("Library");
@@ -50,18 +51,15 @@ impl AppConfig {
             } else {
                 return Err(AppError::Path(ErrPath::DirectoryNotFound));
             }
+        } else if let Some(xdg_data) = env::var_os("XDG_DATA_HOME") {
+            PathBuf::from(xdg_data)
+        } else if let Some(home) = env::var_os("HOME") {
+            let mut path = PathBuf::from(home);
+            path.push(".local");
+            path.push("share");
+            path
         } else {
-            // Linux et autres Unix: XDG_DATA_HOME ou ~/.local/share
-            if let Some(xdg_data) = env::var_os("XDG_DATA_HOME") {
-                PathBuf::from(xdg_data)
-            } else if let Some(home) = env::var_os("HOME") {
-                let mut path = PathBuf::from(home);
-                path.push(".local");
-                path.push("share");
-                path
-            } else {
-                return Err(AppError::Path(ErrPath::DirectoryNotFound));
-            }
+            return Err(AppError::Path(ErrPath::DirectoryNotFound));
         };
 
         Ok(base_dir)

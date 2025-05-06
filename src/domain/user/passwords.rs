@@ -4,13 +4,19 @@ use argon2::{
 };
 use borsh::{BorshDeserialize, BorshSerialize};
 use rand_core::OsRng;
-use zeroize::{self, Zeroize};
+use zeroize::{self, Zeroize, ZeroizeOnDrop};
 
 use crate::error::{AppError, ErrArgon2, ErrPassword};
 
 #[derive(PartialEq, Eq, PartialOrd, BorshSerialize, BorshDeserialize, Debug, Clone)]
 pub struct UserPassword {
     hashed: String,
+}
+
+impl Zeroize for UserPassword {
+    fn zeroize(&mut self) {
+        self.hashed.zeroize();
+    }
 }
 
 impl UserPassword {

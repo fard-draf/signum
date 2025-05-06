@@ -8,7 +8,7 @@ use crate::{
             passwords::UserPassword,
         },
     },
-    error::{AppError, ErrCypher, ErrUser},
+    error::{AppError, ErrEncrypt, ErrUser},
 };
 
 use argon2::password_hash::SaltString;
@@ -71,14 +71,14 @@ impl<R: UserRepository, F: FileSystem> AuthService<R, F> {
         );
         let metadata_bytes = self.fs.read_file(&base_path)?;
         let metadata: UserMetadata = borsh::BorshDeserialize::try_from_slice(&metadata_bytes)
-            .map_err(|_| AppError::Cypher(ErrCypher::BorshError))?;
+            .map_err(|_| AppError::Encrypt(ErrEncrypt::BorshError))?;
 
         let dummy_password = UserPassword::from_raw("dummy")?; // Juste pour la structure
         let dummy_file_path = UserFilePath::new("dummy".to_string())?;
 
         let temp_user = User {
             name: metadata.name.clone(),
-            cypher_salt: metadata.cypher_salt,
+            cypher_salt: metadata.user_salt,
             password: dummy_password,
             file_path: dummy_file_path,
         };
