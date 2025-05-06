@@ -12,11 +12,11 @@ impl FileSystemAdapter {
     }
 }
 
-impl Default for FileSystemAdapter {
-    fn default() -> Self {
-        Self::new()
-    }
-}
+// impl Default for FileSystemAdapter {
+//     fn default() -> Self {
+//         Self::new()
+//     }
+// }
 
 impl FileSystem for FileSystemAdapter {
     fn read_file(&self, path: &str) -> Result<Vec<u8>, AppError> {

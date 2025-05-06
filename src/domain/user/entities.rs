@@ -40,24 +40,24 @@ impl Debug for User {
     }
 }
 
-#[derive(PartialEq, Eq, PartialOrd, BorshSerialize, BorshDeserialize)]
+#[derive(PartialEq, Eq, PartialOrd, Clone)]
 pub struct User {
     pub name: UserName,
     pub password: UserPassword,
-    pub cypher_salt: String,
+    pub user_salt: String,
     pub file_path: UserFilePath,
 }
 
 impl User {
     pub fn new(
         name: UserName,
-        cypher_salt: String,
+        user_salt: String,
         password: UserPassword,
         file_path: UserFilePath,
     ) -> Self {
         Self {
             name,
-            cypher_salt,
+            user_salt,
             password,
             file_path,
         }
@@ -66,7 +66,7 @@ impl User {
     pub fn get_metadata(&self) -> UserMetadata {
         UserMetadata {
             name: self.name.clone(),
-            user_salt: self.cypher_salt.clone(),
+            user_salt: self.user_salt.clone(),
         }
     }
 
@@ -78,7 +78,7 @@ impl User {
     }
 
     pub fn get_salt(&self) -> Result<SaltString, AppError> {
-        SaltString::from_b64(&self.cypher_salt)
+        SaltString::from_b64(&self.user_salt)
             .map_err(|_| AppError::Encrypt(ErrEncrypt::InvalidSalt))
     }
 }

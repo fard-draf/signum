@@ -176,6 +176,12 @@ pub enum ErrIO {
 pub enum ErrDalek {
     #[error("Signature error: {0}")]
     Signature(#[from] DalekSignatureError),
+
+    #[error("Key not found")]
+    KeyNotFound,
+
+    #[error("Invalid key")]
+    InvalidKey,
 }
 
 #[derive(Debug, Error)]

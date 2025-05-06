@@ -89,7 +89,7 @@ impl<F: FileSystem> UserRepository for UserFileRepository<F> {
 
         let user = User {
             name: metadata.name,
-            cypher_salt: metadata.user_salt,
+            user_salt: metadata.user_salt,
             password: secure_data.password,
             file_path,
         };
