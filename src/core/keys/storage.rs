@@ -1,23 +1,41 @@
 use base64::{Engine as _, engine::general_purpose};
 use ed25519_dalek::SigningKey;
 use std::fs::{self, write};
+use zeroize::Zeroize;
 
-use crate::error::{AppError, ErrBase64, ErrIO};
+use crate::{
+    core::crypto::sym::{decrypt_data, derive_key_from_password, encrypt_data},
+    error::{AppError, ErrBase64, ErrEncrypt, ErrIO},
+};
 
 // Save private key
-pub fn save_signing_key_to_file(key: &SigningKey, path: &str) -> Result<(), AppError> {
-    let encoded = general_purpose::STANDARD.encode(key.to_bytes());
-    write(path, encoded).map_err(|e| AppError::IO(ErrIO::IoError(e)))
+pub fn save_signing_key_to_file(
+    key: &SigningKey,
+    path: &str,
+    encryption_key: &[u8; 32],
+) -> Result<(), AppError> {
+    let mut key_bytes = key.to_bytes();
+    let encrypted = encrypt_data(&key_bytes, encryption_key)?;
+
+    fs::write(path, &encrypted).map_err(|e| AppError::IO(ErrIO::IoError(e)))?;
+    key_bytes.zeroize();
+
+    Ok(())
 }
 
 // Load the saved private key
-pub fn load_signing_key_from_file(path: &str) -> Result<SigningKey, AppError> {
-    let encoded = fs::read_to_string(path).map_err(|e| AppError::IO(ErrIO::IoError(e)))?;
-    let bytes = general_purpose::STANDARD
-        .decode(encoded.trim())
-        .map_err(|e| AppError::Base64(ErrBase64::DecodeError(e)))?;
-    let raw: [u8; 32] = bytes.try_into().map_err(|_| AppError::Error)?;
+pub fn load_signing_key_from_file(
+    path: &str,
+    encryption_key: &[u8; 32],
+) -> Result<SigningKey, AppError> {
+    let encrypted = fs::read(path).map_err(|e| AppError::IO(ErrIO::IoError(e)))?;
+    let mut decrypted = decrypt_data(&encrypted, encryption_key)?;
+    let raw: [u8; 32] = decrypted
+        .as_slice()
+        .try_into()
+        .map_err(|_| AppError::Encrypt(ErrEncrypt::InvalidKey))?;
     let key = SigningKey::from_bytes(&raw);
+    decrypted.zeroize();
 
     Ok(key)
 }
