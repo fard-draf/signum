@@ -16,8 +16,8 @@ mod tests {
         let user = User {
             name: UserName::new("alice").unwrap(),
             password: UserPassword::from_raw(password).unwrap(),
-            file_path: UserFilePath::new("dummy/path".to_string()).unwrap(),
-            cypher_salt: salt.to_string(),
+            file_path: UserFilePath::from_filename("dummy/path".to_string()).unwrap(),
+            user_salt: salt.to_string(),
         };
 
         let key1 = derive_key_from_password(password, &user).expect("derivation failed");
