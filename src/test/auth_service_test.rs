@@ -14,12 +14,10 @@ mod tests {
         tracing::init_logging,
     };
 
-    // Fonction d'initialisation
     fn init() {
         let _ = init_logging();
     }
 
-    // Configuration pour les tests
     fn setup_test_env() -> (
         AuthService<UserFileRepository<FileSystemAdapter>, FileSystemAdapter>,
         PathBuf,
@@ -36,7 +34,6 @@ mod tests {
         let auth_service = AuthService::new(user_repository, fs_adapter, config, key_service);
         let test_dir = temp_dir.path().join("user_data");
         std::fs::create_dir_all(&test_dir).expect("Failed to create test directory");
-        // Retourner à la fois le service et le chemin temporaire
         (auth_service, temp_path)
     }
 
@@ -61,10 +58,8 @@ mod tests {
 
         let (user, mut signing_key) = result.unwrap();
 
-        // Vérifier que l'utilisateur a été créé correctement
         assert_eq!(user.name.name, "testuser");
 
-        // Vérifier que la clé de signature est valide
         let message = b"Test message for registration";
         let signature = signing_key.sign(message);
         let verify_result = signing_key

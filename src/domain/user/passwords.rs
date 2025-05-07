@@ -4,7 +4,7 @@ use argon2::{
 };
 use borsh::{BorshDeserialize, BorshSerialize};
 use rand_core::OsRng;
-use zeroize::{self, Zeroize, ZeroizeOnDrop};
+use zeroize::{self, Zeroize};
 
 use crate::error::{AppError, ErrArgon2, ErrPassword};
 

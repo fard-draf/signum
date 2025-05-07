@@ -62,6 +62,7 @@ pub fn derive_key_from_password(temp_pw: &mut str, user: &User) -> Result<[u8; 3
     let hash = argon2
         .hash_password(temp_pw.as_bytes(), &salt)
         .map_err(|e| AppError::Argon2(ErrArgon2::PasswordHashError(e)))?;
+    temp_pw.zeroize();
     let raw_hash = hash
         .hash
         .ok_or(AppError::Encrypt(ErrEncrypt::MissingHash))?;

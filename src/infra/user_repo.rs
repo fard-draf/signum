@@ -40,11 +40,13 @@ impl<F: FileSystem> UserRepository for UserFileRepository<F> {
 
         {
             let secure_path = user.file_path.path.clone();
-            let secure_data = user.get_secure_data();
-            let secure_bytes = borsh::to_vec(&secure_data)
+            let mut secure_data = user.get_secure_data();
+            let mut secure_bytes = borsh::to_vec(&secure_data)
                 .map_err(|_| AppError::Encrypt(ErrEncrypt::BorshError))?;
             let encrypted = encrypt_data(&secure_bytes, key)?;
             self.fs.write_file(&secure_path, &encrypted)?;
+            secure_bytes.zeroize();
+            secure_data.zeroize();
         }
 
         Ok(())

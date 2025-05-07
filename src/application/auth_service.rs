@@ -1,15 +1,19 @@
 use crate::{
     core::crypto::sym::derive_key_from_password,
     domain::{
-        ports::{config::AppConfig, fs::FileSystem, repository::UserRepository},
+        ports::{
+            config::{self, AppConfig},
+            fs::FileSystem,
+            repository::UserRepository,
+        },
         user::{
             self,
             entities::{User, UserMetadata, UserName},
-            file_path::UserFilePath,
+            file_path::{self, UserFilePath},
             passwords::UserPassword,
         },
     },
-    error::{AppError, ErrEncrypt, ErrUser},
+    error::{AppError, ErrEncrypt, ErrPath, ErrUser},
 };
 
 use argon2::password_hash::SaltString;
@@ -41,18 +45,28 @@ impl<R: UserRepository, F: FileSystem> AuthService<R, F> {
         &self,
         username: &str,
         raw_pw: &mut str,
-        path: &mut str,
+        raw_path: &mut str,
     ) -> Result<(User, SigningKey), AppError> {
+        info!("REG_USR: repository entry");
         let name = UserName::new(username)?;
 
         if self.repository.exists(&name)? {
+            info!("REG_USR: error, user already exists");
             return Err(AppError::User(ErrUser::AlreadyExist));
         }
-        info!("REG_USR: repository exist");
         let password = UserPassword::from_raw(raw_pw)?;
         let salt = SaltString::generate(&mut OsRng);
-        info!("REG_USR: path: {}", path);
+        info!("REG_USR: path: {}", raw_path);
+        let biding = self
+            .config
+            .base_directory
+            .join("users")
+            .join(&name.name)
+            .join(format!("{}.sgm", name));
+        let path = biding.to_string_lossy();
+
         let file_path = UserFilePath::from_path(path.to_string())?;
+        // let file_path = UserFilePath::from_path(path.to_string())?;
 
         info!("REG_USR: password: {:?}", password);
         info!("REG_USR: raw password: {:?}", raw_pw);
@@ -62,7 +76,10 @@ impl<R: UserRepository, F: FileSystem> AuthService<R, F> {
         info!("REG_USR: user created {:?}", user);
         // saving user
 
-        let mut key = derive_key_from_password(raw_pw, &user)?;
+        let mut temp_pw_0 = String::new();
+        raw_pw.clone_into(&mut temp_pw_0);
+        let mut key = derive_key_from_password(&mut temp_pw_0, &user)?;
+        temp_pw_0.zeroize();
         self.repository.save(&user, &key)?;
         info!("REG_USR: key derived {:?}", key);
 
@@ -82,7 +99,6 @@ impl<R: UserRepository, F: FileSystem> AuthService<R, F> {
 
         key.zeroize();
         raw_pw.zeroize();
-        path.zeroize();
         info!("REG_USR: raw password: -> has to be none {:?}", raw_pw);
 
         Ok((user, signing_key))
@@ -121,7 +137,10 @@ impl<R: UserRepository, F: FileSystem> AuthService<R, F> {
             file_path: dummy_file_path,
         };
 
-        let key = derive_key_from_password(raw_pw, &temp_user)?;
+        let mut temp_pw_0 = String::new();
+        raw_pw.clone_into(&mut temp_pw_0);
+        let mut key = derive_key_from_password(&mut temp_pw_0, &temp_user)?;
+        temp_pw_0.zeroize();
 
         // load the complete user
         let user = self.repository.load(&name, &key)?;
