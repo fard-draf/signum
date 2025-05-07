@@ -22,11 +22,11 @@ impl Zeroize for UserFilePath {
 }
 
 impl UserFilePath {
-    pub fn from_filename(file_name: String) -> Result<Self, AppError> {
+    pub fn from_filename(raw_file_name: String) -> Result<Self, AppError> {
         const FORBIDDEN: &[char] = &[
             '\0', '|', ';', '>', '<', '\\', ':', '/', '*', '?', '"', '\'',
         ];
-        let file_name = file_name.trim().to_string();
+        let file_name = raw_file_name.trim().to_string();
         if file_name.is_empty() {
             return Err(AppError::Path(ErrPath::EmptyFilename));
         }

@@ -53,7 +53,7 @@ mod tests {
         key: &SigningKey,
         path: &str,
         user: &User,
-        password: &str,
+        password: &mut String,
     ) -> Result<(), AppError> {
         // Dériver la clé d'encryption à partir du mot de passe et du sel de l'utilisateur
         let mut encryption_key = derive_key_from_password(password, user)?;
@@ -74,7 +74,7 @@ mod tests {
     fn load_signing_key_encrypted(
         path: &str,
         user: &User,
-        password: &str,
+        password: &mut String,
     ) -> Result<SigningKey, AppError> {
         // Dériver la clé d'encryption à partir du mot de passe et du sel de l'utilisateur
         let mut encryption_key = derive_key_from_password(password, user)?;
@@ -144,25 +144,25 @@ mod tests {
         cleanup_test_files(base_name);
 
         // Créer un utilisateur de test
-        let (user, password) = create_test_user();
+        let (user, mut password) = create_test_user();
 
         // Générer une clé de signature
         let original_key = SigningKey::generate(&mut OsRng);
 
         // Sauvegarder la clé de manière chiffrée avec les informations utilisateur
-        save_signing_key_encrypted(&original_key, &sk_path, &user, &password)
+        save_signing_key_encrypted(&original_key, &sk_path, &user, &mut password)
             .expect("Failed to save encrypted signing key");
 
         // Charger la clé chiffrée en dérivant la clé d'encryption à partir des mêmes informations
-        let loaded_key = load_signing_key_encrypted(&sk_path, &user, &password)
+        let loaded_key = load_signing_key_encrypted(&sk_path, &user, &mut password)
             .expect("Failed to load encrypted signing key");
 
         // Vérifier que les clés sont identiques
         assert_eq!(original_key.to_bytes(), loaded_key.to_bytes());
 
         // Tester avec un mauvais mot de passe
-        let wrong_password = "Wr0ng@P4ssw0rd5678";
-        let result = load_signing_key_encrypted(&sk_path, &user, wrong_password);
+        let mut wrong_password = "Wr0ng@P4ssw0rd5678".to_string();
+        let result = load_signing_key_encrypted(&sk_path, &user, &mut wrong_password);
         assert!(result.is_err(), "Loading with wrong password should fail");
 
         // Nettoyer
@@ -204,13 +204,13 @@ mod tests {
         cleanup_test_files(base_name);
 
         // 1. Créer un utilisateur de test
-        let (user, password) = create_test_user();
+        let (user, mut password) = create_test_user();
 
         // 2. Générer une paire de clés
         let (mut sk, vk) = generate_keypair();
 
         // 3. Sauvegarder les clés
-        save_signing_key_encrypted(&sk, &sk_path, &user, &password)
+        save_signing_key_encrypted(&sk, &sk_path, &user, &mut password)
             .expect("Failed to save signing key");
         save_verifying_key(&vk, &vk_path).expect("Failed to save verifying key");
 
@@ -221,7 +221,7 @@ mod tests {
         let original_signature = sk.sign(message);
 
         // 6. Simuler une déconnexion puis reconnexion (recharger la clé privée)
-        let mut loaded_sk = load_signing_key_encrypted(&sk_path, &user, &password)
+        let mut loaded_sk = load_signing_key_encrypted(&sk_path, &user, &mut password)
             .expect("Failed to load signing key");
         let loaded_signature = loaded_sk.sign(message);
 
@@ -249,24 +249,24 @@ mod tests {
         cleanup_test_files(base_name);
 
         // Créer deux utilisateurs différents
-        let (user1, password1) = create_test_user();
+        let (user1, mut password1) = create_test_user();
 
         let mut user2 = user1.clone();
         user2.name = UserName::new("otheruser").unwrap();
         // Même mot de passe mais sel différent
         user2.user_salt = SaltString::generate(&mut OsRng).to_string();
-        let password2 = password1.clone();
+        let mut password2 = password1.clone();
 
         // Générer une clé de signature
         let original_key = SigningKey::generate(&mut OsRng);
 
         // Sauvegarder la clé avec les informations du premier utilisateur
-        save_signing_key_encrypted(&original_key, &sk_path, &user1, &password1)
+        save_signing_key_encrypted(&original_key, &sk_path, &user1, &mut password1)
             .expect("Failed to save encrypted signing key");
 
         // Essayer de charger avec le second utilisateur (même mot de passe, sel différent)
         // Cela devrait échouer car la clé dérivée sera différente
-        let result = load_signing_key_encrypted(&sk_path, &user2, &password2);
+        let result = load_signing_key_encrypted(&sk_path, &user2, &mut password2);
         assert!(
             result.is_err(),
             "Loading with different salt should fail even with same password"

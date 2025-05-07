@@ -1,4 +1,5 @@
 use tracing::{error, info};
+use zeroize::Zeroize;
 
 use crate::{
     domain::user::entities::User,
@@ -33,30 +34,34 @@ pub fn decrypt_data(encrypted_data: &[u8], key: &[u8; 32]) -> Result<Vec<u8>, Ap
     if ciphertxt.is_empty() {
         return Err(AppError::Encrypt(ErrEncrypt::InvalidData));
     }
-    info!("DECRPT_DATA: cipher isnt empty: {:?}", ciphertxt);
+    info!("DECRPT_DATA: cipher: {:?}", ciphertxt);
 
     let nonce = XNonce::from_slice(nonce_bytes);
     let cipher = XChaCha20Poly1305::new(key.into());
 
     match cipher.decrypt(nonce, ciphertxt) {
-        Ok(plaintext) => Ok(plaintext),
+        Ok(plaintext) => {
+            info!("DECRPT_DATA: OK");
+            Ok(plaintext)
+        }
         Err(e) => {
-            error!("DECDecryption failed: {:?}", e);
+            info!("DECRPT_DATA: decryption failed");
+            error!("DECRPT_DATA: decryption failed: {:?}", e);
             Err(AppError::Encrypt(ErrEncrypt::DecryptionFailed))
         }
     }
 }
 
-pub fn derive_key_from_password(raw_password: &str, user: &User) -> Result<[u8; 32], AppError> {
+pub fn derive_key_from_password(temp_pw: &mut str, user: &User) -> Result<[u8; 32], AppError> {
     let salt = user.get_salt()?;
     info!("DERIVE_FROM_K: salt {}", salt);
+    info!("DERIVE_FROM_K: temp_pw {}", temp_pw);
 
     let argon2 = Argon2::default();
 
     let hash = argon2
-        .hash_password(raw_password.as_bytes(), &salt)
+        .hash_password(temp_pw.as_bytes(), &salt)
         .map_err(|e| AppError::Argon2(ErrArgon2::PasswordHashError(e)))?;
-
     let raw_hash = hash
         .hash
         .ok_or(AppError::Encrypt(ErrEncrypt::MissingHash))?;

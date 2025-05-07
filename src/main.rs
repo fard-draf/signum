@@ -16,7 +16,7 @@ fn main() -> Result<(), AppError> {
     // Configuration initiale
     let config = AppConfig::new(None)?;
 
-    let file_path = config.base_directory.join("test_user_data.sgm");
+    let file_path = config.base_directory.join("testuser.sgm");
     let mut path = file_path.to_string_lossy().into_owned();
 
     let fs_adapter = FileSystemAdapter::new();
@@ -34,6 +34,7 @@ fn main() -> Result<(), AppError> {
     println!("Utilisateur inscrit : {}", user.name);
     println!("Clé de signature générée");
 
+    println!("TEMPS 1");
     // Se connecter
     let mut password = String::from("Str0ng@P4ssw0rd1234");
     let (logged_user, _loaded_key) = auth_service.login(username, &mut password)?;

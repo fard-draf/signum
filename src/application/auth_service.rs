@@ -3,6 +3,7 @@ use crate::{
     domain::{
         ports::{config::AppConfig, fs::FileSystem, repository::UserRepository},
         user::{
+            self,
             entities::{User, UserMetadata, UserName},
             file_path::UserFilePath,
             passwords::UserPassword,
@@ -47,39 +48,42 @@ impl<R: UserRepository, F: FileSystem> AuthService<R, F> {
         if self.repository.exists(&name)? {
             return Err(AppError::User(ErrUser::AlreadyExist));
         }
-        info!("REG: repository exist");
+        info!("REG_USR: repository exist");
         let password = UserPassword::from_raw(raw_pw)?;
         let salt = SaltString::generate(&mut OsRng);
-        let file_path = UserFilePath::from_filename(path.to_string())?;
+        info!("REG_USR: path: {}", path);
+        let file_path = UserFilePath::from_path(path.to_string())?;
 
-        info!("REG: password: {:?}", password);
-        info!("REG: raw password: {:?}", raw_pw);
-        info!("REG: file path: {:?}", file_path);
-        info!("REG: salt: {}", salt);
+        info!("REG_USR: password: {:?}", password);
+        info!("REG_USR: raw password: {:?}", raw_pw);
+        info!("REG_USR: file path: {:?}", file_path);
+        info!("REG_USR: salt: {}", salt);
         let user = User::new(name, salt.to_string(), password, file_path);
-        info!("REG: user created {:?}", user);
+        info!("REG_USR: user created {:?}", user);
         // saving user
+
         let mut key = derive_key_from_password(raw_pw, &user)?;
         self.repository.save(&user, &key)?;
-        info!("REG: key derived {:?}", key);
+        info!("REG_USR: key derived {:?}", key);
 
-        let mut generate_pw = String::new();
-        raw_pw.clone_into(&mut generate_pw);
-        generate_pw.zeroize();
+        let mut temp_pw_1 = String::new();
+        raw_pw.clone_into(&mut temp_pw_1);
         // generate and save first encrypted keys - sk & vk
-        self.key_service
-            .generate_user_keys(&user, &mut generate_pw)?;
+        self.key_service.generate_user_keys(&user, &mut temp_pw_1)?;
+        temp_pw_1.zeroize();
 
-        let mut signing_pw = String::new();
-        raw_pw.clone_into(&mut signing_pw);
-        signing_pw.zeroize();
+        let mut temp_pw_2 = String::new();
+        raw_pw.clone_into(&mut temp_pw_2);
+        info!("REG_USR: raw password: {:?}", raw_pw);
 
         // load the private key to return it
-        let signing_key = self.key_service.load_signing_key(&user, &mut signing_pw)?;
+        let signing_key = self.key_service.load_signing_key(&user, &mut temp_pw_2)?;
+        temp_pw_2.zeroize();
 
         key.zeroize();
         raw_pw.zeroize();
         path.zeroize();
+        info!("REG_USR: raw password: -> has to be none {:?}", raw_pw);
 
         Ok((user, signing_key))
     }
@@ -90,6 +94,9 @@ impl<R: UserRepository, F: FileSystem> AuthService<R, F> {
         raw_pw: &mut str,
     ) -> Result<(User, SigningKey), AppError> {
         let name = UserName::new(raw_username)?;
+        info!("LOGIN_USR: raw_username: {}", raw_username);
+        info!("LOGIN_USR: raw_pw: {}", raw_pw);
+        info!("LOGIN_USR: user_name: {:?}", name);
 
         if !self.repository.exists(&name)? {
             return Err(AppError::User(ErrUser::UserNotFound));
@@ -102,9 +109,10 @@ impl<R: UserRepository, F: FileSystem> AuthService<R, F> {
         let metadata_bytes = self.fs.read_file(&base_path)?;
         let metadata: UserMetadata = borsh::BorshDeserialize::try_from_slice(&metadata_bytes)
             .map_err(|_| AppError::Encrypt(ErrEncrypt::BorshError))?;
-
-        let dummy_password = UserPassword::from_raw("@kenath0n1818")?;
-        let dummy_file_path = UserFilePath::from_filename("/isnt/real".to_string())?;
+        info!("USR_LOGIN: metadata.name: {:?}", metadata.name);
+        let dummy_password = UserPassword::from_raw("Str0ng@P4ssw0rd12345")?;
+        let dummy_file_path = UserFilePath::from_path("/isnt/real".to_string())?;
+        info!("USR_LOGIN: dummy password: {:?}", dummy_password);
 
         let temp_user = User {
             name: metadata.name.clone(),

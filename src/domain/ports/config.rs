@@ -67,7 +67,7 @@ impl AppConfig {
 
     pub fn get_user_data_path(&self, username: &UserName) -> PathBuf {
         self.base_directory
-            .join("users")
+            // .join("users")
             .join(format!("{}.sgm", username.name))
     }
 }
