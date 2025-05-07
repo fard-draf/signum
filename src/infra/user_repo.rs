@@ -11,6 +11,7 @@ use crate::{
 };
 
 use borsh;
+use log::info;
 use zeroize::{self, Zeroize};
 
 pub struct UserFileRepository<F: FileSystem> {
@@ -26,8 +27,9 @@ impl<F: FileSystem> UserFileRepository<F> {
 
 impl<F: FileSystem> UserRepository for UserFileRepository<F> {
     fn save(&self, user: &User, key: &[u8; 32]) -> Result<(), AppError> {
+        info!("USR_RPO_SAVE: entrence");
         user.file_path.validate(&self.config, &self.fs)?;
-
+        info!("USR_RPO_SAVE: saving file: {:?}", user.file_path);
         {
             let mut metadata_path = format!("{}.meta", user.file_path.path);
             let mut metadata = user.get_metadata();
@@ -85,7 +87,7 @@ impl<F: FileSystem> UserRepository for UserFileRepository<F> {
                 .map_err(|_| AppError::Encrypt(ErrEncrypt::DecryptionFailed))?;
         decrypted.zeroize();
 
-        let file_path = UserFilePath::new(secure_path)?;
+        let file_path = UserFilePath::from_filename(secure_path)?;
 
         let user = User {
             name: metadata.name,

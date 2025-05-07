@@ -114,6 +114,9 @@ pub enum ErrPath {
     #[error("Empty filename")]
     EmptyFilename,
 
+    #[error("Empty path")]
+    EmptyPath,
+
     #[error("Access denied")]
     AccessDenied,
 

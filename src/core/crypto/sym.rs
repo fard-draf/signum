@@ -33,7 +33,7 @@ pub fn decrypt_data(encrypted_data: &[u8], key: &[u8; 32]) -> Result<Vec<u8>, Ap
     if ciphertxt.is_empty() {
         return Err(AppError::Encrypt(ErrEncrypt::InvalidData));
     }
-    info!("cipher isnt empty: {:?}", ciphertxt);
+    info!("DECRPT_DATA: cipher isnt empty: {:?}", ciphertxt);
 
     let nonce = XNonce::from_slice(nonce_bytes);
     let cipher = XChaCha20Poly1305::new(key.into());
@@ -41,7 +41,7 @@ pub fn decrypt_data(encrypted_data: &[u8], key: &[u8; 32]) -> Result<Vec<u8>, Ap
     match cipher.decrypt(nonce, ciphertxt) {
         Ok(plaintext) => Ok(plaintext),
         Err(e) => {
-            error!("Decryption failed: {:?}", e);
+            error!("DECDecryption failed: {:?}", e);
             Err(AppError::Encrypt(ErrEncrypt::DecryptionFailed))
         }
     }
@@ -49,8 +49,8 @@ pub fn decrypt_data(encrypted_data: &[u8], key: &[u8; 32]) -> Result<Vec<u8>, Ap
 
 pub fn derive_key_from_password(raw_password: &str, user: &User) -> Result<[u8; 32], AppError> {
     let salt = user.get_salt()?;
-    info!("salt {}", salt);
-    
+    info!("DERIVE_FROM_K: salt {}", salt);
+
     let argon2 = Argon2::default();
 
     let hash = argon2
@@ -62,5 +62,6 @@ pub fn derive_key_from_password(raw_password: &str, user: &User) -> Result<[u8; 
         .ok_or(AppError::Encrypt(ErrEncrypt::MissingHash))?;
     let mut key = [0u8; 32];
     key.copy_from_slice(raw_hash.as_bytes());
+    info!("DERIVE_FROM_K: key {:?}", key);
     Ok(key)
 }

@@ -1,4 +1,5 @@
 use borsh::{BorshDeserialize, BorshSerialize};
+use log::info;
 use std::path::Path;
 use zeroize::Zeroize;
 
@@ -9,7 +10,7 @@ use crate::{
     },
     error::{AppError, ErrPath},
 };
-#[derive(PartialEq, Eq, PartialOrd, Ord, BorshSerialize, BorshDeserialize, Clone)]
+#[derive(PartialEq, Eq, PartialOrd, Ord, BorshSerialize, BorshDeserialize, Clone, Debug)]
 pub struct UserFilePath {
     pub path: String,
 }
@@ -21,18 +22,32 @@ impl Zeroize for UserFilePath {
 }
 
 impl UserFilePath {
-    pub fn new(path: String) -> Result<Self, AppError> {
+    pub fn from_filename(file_name: String) -> Result<Self, AppError> {
         const FORBIDDEN: &[char] = &[
-            '\0', '|', ';', '>', '<', '/', '\\', ':', '*', '?', '"', '\'',
+            '\0', '|', ';', '>', '<', '\\', ':', '/', '*', '?', '"', '\'',
         ];
+        let file_name = file_name.trim().to_string();
+        if file_name.is_empty() {
+            return Err(AppError::Path(ErrPath::EmptyFilename));
+        }
+        if file_name.chars().any(|c| c.is_whitespace())
+            || file_name.chars().any(|c| FORBIDDEN.contains(&c))
+        {
+            return Err(AppError::Path(ErrPath::ForbiddenCharacters));
+        }
+
+        Ok(UserFilePath { path: file_name })
+    }
+
+    pub fn from_path(path: String) -> Result<Self, AppError> {
+        const FORBIDDEN: &[char] = &['\0', '|', ';', '>', '<', '\\', ':', '*', '?', '"'];
         let path = path.trim().to_string();
         if path.is_empty() {
-            return Err(AppError::Path(ErrPath::EmptyFilename));
+            return Err(AppError::Path(ErrPath::EmptyPath));
         }
         if path.chars().any(|c| c.is_whitespace()) || path.chars().any(|c| FORBIDDEN.contains(&c)) {
             return Err(AppError::Path(ErrPath::ForbiddenCharacters));
         }
-
         Ok(UserFilePath { path })
     }
 
@@ -47,11 +62,12 @@ impl UserFilePath {
 
     pub fn validate<F: FileSystem>(&self, config: &AppConfig, fs: &F) -> Result<(), AppError> {
         let base_dir = config.base_directory.to_string_lossy().into_owned();
-
+        info!("VALIDATE: base_dir: {}", base_dir);
         if fs.file_exists(&self.path) {
             match fs.canonicalize_path(&self.path) {
                 Ok(canonical_path) => {
                     if !fs.is_path_in_directory(&canonical_path, &base_dir)? {
+                        info!("VALIDATE: canonical path: {}", canonical_path);
                         return Err(AppError::Path(ErrPath::PathTraversal));
                     }
                 }

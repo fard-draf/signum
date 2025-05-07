@@ -13,6 +13,7 @@ use crate::{
 
 use argon2::password_hash::SaltString;
 use ed25519_dalek::SigningKey;
+use log::info;
 use rand_core::OsRng;
 use zeroize::Zeroize;
 
@@ -46,22 +47,35 @@ impl<R: UserRepository, F: FileSystem> AuthService<R, F> {
         if self.repository.exists(&name)? {
             return Err(AppError::User(ErrUser::AlreadyExist));
         }
-
+        info!("REG: repository exist");
         let password = UserPassword::from_raw(raw_pw)?;
         let salt = SaltString::generate(&mut OsRng);
-        let file_path = UserFilePath::new(path.to_string())?;
+        let file_path = UserFilePath::from_filename(path.to_string())?;
 
+        info!("REG: password: {:?}", password);
+        info!("REG: raw password: {:?}", raw_pw);
+        info!("REG: file path: {:?}", file_path);
+        info!("REG: salt: {}", salt);
         let user = User::new(name, salt.to_string(), password, file_path);
-
+        info!("REG: user created {:?}", user);
         // saving user
         let mut key = derive_key_from_password(raw_pw, &user)?;
         self.repository.save(&user, &key)?;
+        info!("REG: key derived {:?}", key);
 
+        let mut generate_pw = String::new();
+        raw_pw.clone_into(&mut generate_pw);
+        generate_pw.zeroize();
         // generate and save first encrypted keys - sk & vk
-        self.key_service.generate_user_keys(&user, raw_pw)?;
+        self.key_service
+            .generate_user_keys(&user, &mut generate_pw)?;
+
+        let mut signing_pw = String::new();
+        raw_pw.clone_into(&mut signing_pw);
+        signing_pw.zeroize();
 
         // load the private key to return it
-        let signing_key = self.key_service.load_signing_key(&user, raw_pw)?;
+        let signing_key = self.key_service.load_signing_key(&user, &mut signing_pw)?;
 
         key.zeroize();
         raw_pw.zeroize();
@@ -90,7 +104,7 @@ impl<R: UserRepository, F: FileSystem> AuthService<R, F> {
             .map_err(|_| AppError::Encrypt(ErrEncrypt::BorshError))?;
 
         let dummy_password = UserPassword::from_raw("@kenath0n1818")?;
-        let dummy_file_path = UserFilePath::new("/isnt/real".to_string())?;
+        let dummy_file_path = UserFilePath::from_filename("/isnt/real".to_string())?;
 
         let temp_user = User {
             name: metadata.name.clone(),

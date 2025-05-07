@@ -34,7 +34,7 @@ impl<F: FileSystem> KeyService<F> {
     pub fn generate_user_keys(&self, user: &User, password: &mut str) -> Result<(), AppError> {
         let (signing_key, verifying_key) = generate_keypair();
         self.save_signing_key(user, password, &signing_key)?;
-        password.zeroize();
+        // password.zeroize();
         self.save_verifying_key(user, &verifying_key)?;
 
         Ok(())
@@ -86,7 +86,6 @@ impl<F: FileSystem> KeyService<F> {
         user: &User,
         raw_password: &mut str,
     ) -> Result<SigningKey, AppError> {
-        info!("LOAD: password: {}", raw_password);
         let base_dir = self.get_keys_directory(user)?;
         let base_path = std::path::Path::new(&base_dir);
         let sk_path = base_path.join("signing_key.sk.enc");

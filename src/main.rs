@@ -15,6 +15,10 @@ fn main() -> Result<(), AppError> {
     tracing::info!("(tracing) Application prête");
     // Configuration initiale
     let config = AppConfig::new(None)?;
+
+    let file_path = config.base_directory.join("test_user_data.sgm");
+    let mut path = file_path.to_string_lossy().into_owned();
+
     let fs_adapter = FileSystemAdapter::new();
     let user_repository = UserFileRepository::new(fs_adapter.clone(), config.clone());
     let key_service = KeyService::new(fs_adapter.clone(), config.clone());
@@ -23,7 +27,7 @@ fn main() -> Result<(), AppError> {
     // Test d'inscription et de connexion
     let username = "testuser";
     let mut password = String::from("Str0ng@P4ssw0rd1234");
-    let mut path = String::from("test_user_data.sgm");
+
     info!("user loaded");
     // S'inscrire
     let (user, mut signing_key) = auth_service.register(username, &mut password, &mut path)?;
