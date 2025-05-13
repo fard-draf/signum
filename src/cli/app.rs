@@ -7,7 +7,6 @@ use crate::{
 };
 use ed25519_dalek::SigningKey;
 use inquire::Text;
-use log::info;
 use std::path::Path;
 use zeroize::Zeroize;
 

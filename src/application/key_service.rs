@@ -1,4 +1,3 @@
-use log::warn;
 use tracing::{error, info};
 
 use crate::{
@@ -8,17 +7,13 @@ use crate::{
     },
     domain::{
         ports::{config::AppConfig, fs::FileSystem},
-        user::{
-            self,
-            entities::{User, UserName},
-        },
+        user::entities::User,
     },
-    error::{AppError, ErrBase64, ErrDalek, ErrEncrypt, ErrIO},
+    error::{AppError, ErrBase64, ErrDalek, ErrEncrypt},
 };
 
-use base64::{Engine as _, encode, engine::general_purpose};
+use base64::{Engine as _, engine::general_purpose};
 use ed25519_dalek::{SigningKey, VerifyingKey};
-use std::fs;
 use zeroize::Zeroize;
 
 pub struct KeyService<F: FileSystem> {

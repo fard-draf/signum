@@ -1,19 +1,14 @@
 use crate::{
     core::crypto::sym::derive_key_from_password,
     domain::{
-        ports::{
-            config::{self, AppConfig},
-            fs::FileSystem,
-            repository::UserRepository,
-        },
+        ports::{config::AppConfig, fs::FileSystem, repository::UserRepository},
         user::{
-            self,
             entities::{User, UserMetadata, UserName},
-            file_path::{self, UserFilePath},
+            file_path::UserFilePath,
             passwords::UserPassword,
         },
     },
-    error::{AppError, ErrEncrypt, ErrPath, ErrUser},
+    error::{AppError, ErrEncrypt, ErrUser},
 };
 
 use argon2::password_hash::SaltString;
@@ -22,7 +17,7 @@ use log::info;
 use rand_core::OsRng;
 use zeroize::Zeroize;
 
-use super::key_service::{self, KeyService};
+use super::key_service::KeyService;
 
 pub struct AuthService<R: UserRepository, F: FileSystem> {
     repository: R,
@@ -66,7 +61,6 @@ impl<R: UserRepository, F: FileSystem> AuthService<R, F> {
         let path = biding.to_string_lossy();
 
         let file_path = UserFilePath::from_path(path.to_string())?;
-        // let file_path = UserFilePath::from_path(path.to_string())?;
 
         info!("REG_USR: password: {:?}", password);
         info!("REG_USR: raw password: {:?}", raw_pw);

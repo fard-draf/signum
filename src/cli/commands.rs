@@ -10,11 +10,7 @@ use crate::{
 use base64::{Engine as _, engine::general_purpose};
 use ed25519_dalek::{Signature, SigningKey, Verifier, VerifyingKey};
 use log::info;
-use std::{
-    fs,
-    io::{self, Read, Write},
-    path::Path,
-};
+use std::{fs, path::Path};
 
 // Fonction pour signer un fichier
 pub fn sign_file(
@@ -120,7 +116,7 @@ pub fn encrypt_file(
     let file_content = fs::read(file_path).map_err(|e| AppError::IO(ErrIO::IoError(e)))?;
 
     // Dériver une clé à partir du mot de passe
-    let mut encryption_key = crate::core::crypto::sym::derive_key_from_password(password, user)?;
+    let encryption_key = crate::core::crypto::sym::derive_key_from_password(password, user)?;
 
     // Chiffrer le contenu
     let encrypted = encrypt_data(&file_content, &encryption_key)?;
@@ -156,7 +152,7 @@ pub fn decrypt_file(
     let encrypted_content = fs::read(file_path).map_err(|e| AppError::IO(ErrIO::IoError(e)))?;
 
     // Dériver une clé à partir du mot de passe
-    let mut encryption_key = crate::core::crypto::sym::derive_key_from_password(password, user)?;
+    let encryption_key = crate::core::crypto::sym::derive_key_from_password(password, user)?;
 
     // Déchiffrer le contenu
     let decrypted = decrypt_data(&encrypted_content, &encryption_key)?;

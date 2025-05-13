@@ -1,11 +1,10 @@
-use base64::{Engine as _, engine::general_purpose};
 use ed25519_dalek::SigningKey;
-use std::fs::{self, write};
+use std::fs::{self};
 use zeroize::Zeroize;
 
 use crate::{
-    core::crypto::sym::{decrypt_data, derive_key_from_password, encrypt_data},
-    error::{AppError, ErrBase64, ErrEncrypt, ErrIO},
+    core::crypto::sym::{decrypt_data, encrypt_data},
+    error::{AppError, ErrEncrypt, ErrIO},
 };
 
 // Save private key

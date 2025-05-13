@@ -2,8 +2,6 @@ use std::env;
 use std::fs;
 use std::path::PathBuf;
 
-use zeroize::Zeroize;
-
 use crate::domain::user::entities::UserName;
 use crate::error::{AppError, ErrPath};
 

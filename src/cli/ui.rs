@@ -24,7 +24,7 @@ pub fn action_menu() -> Result<String, AppError> {
 
     Select::new("Que souhaitez-vous faire?", options)
         .prompt()
-        .map_err(|e| AppError::Inquire(crate::error::ErrInquire::InquireError(e)))
+        .map_err(|e| AppError::Inquire(ErrInquire::InquireError(e)))
 }
 
 pub fn secure_password_prompt(message: &str, help: &str) -> Result<String, AppError> {
@@ -32,26 +32,26 @@ pub fn secure_password_prompt(message: &str, help: &str) -> Result<String, AppEr
         .with_help_message(help)
         .with_display_mode(inquire::PasswordDisplayMode::Masked)
         .prompt()
-        .map_err(|e| AppError::Inquire(crate::error::ErrInquire::InquireError(e)))
+        .map_err(|e| AppError::Inquire(ErrInquire::InquireError(e)))
 }
 
 pub fn file_prompt(message: &str) -> Result<String, AppError> {
     Text::new(message)
         .with_help_message("Entrez le chemin complet vers le fichier")
         .prompt()
-        .map_err(|e| AppError::Inquire(crate::error::ErrInquire::InquireError(e)))
+        .map_err(|e| AppError::Inquire(ErrInquire::InquireError(e)))
 }
 
 pub fn output_file_prompt() -> Result<Option<String>, AppError> {
     let use_custom = Confirm::new("Voulez-vous spécifier un chemin de sortie personnalisé?")
         .with_default(false)
         .prompt()
-        .map_err(|e| AppError::Inquire(crate::error::ErrInquire::InquireError(e)))?;
+        .map_err(|e| AppError::Inquire(ErrInquire::InquireError(e)))?;
 
     if use_custom {
         let path = Text::new("Chemin du fichier de sortie:")
             .prompt()
-            .map_err(|e| AppError::Inquire(crate::error::ErrInquire::InquireError(e)))?;
+            .map_err(|e| AppError::Inquire(ErrInquire::InquireError(e)))?;
 
         Ok(Some(path))
     } else {
@@ -63,5 +63,5 @@ pub fn confirm_action(message: &str) -> Result<bool, AppError> {
     Confirm::new(message)
         .with_default(false)
         .prompt()
-        .map_err(|e| AppError::Inquire(crate::error::ErrInquire::InquireError(e)))
+        .map_err(|e| AppError::Inquire(ErrInquire::InquireError(e)))
 }
