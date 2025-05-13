@@ -17,7 +17,7 @@ use crate::{
 };
 
 use argon2::password_hash::SaltString;
-use ed25519_dalek::SigningKey;
+use ed25519_dalek::{SigningKey, VerifyingKey};
 use log::info;
 use rand_core::OsRng;
 use zeroize::Zeroize;
@@ -155,8 +155,13 @@ impl<R: UserRepository, F: FileSystem> AuthService<R, F> {
             let signing_key = self.key_service.load_signing_key(&user, raw_pw)?;
             return Ok((user, signing_key));
         }
+        key.zeroize();
         raw_pw.zeroize();
 
         Ok((user, signing_key))
+    }
+
+    pub fn load_verifying_key(&self, user: &User) -> Result<VerifyingKey, AppError> {
+        self.key_service.load_verifying_key(user)
     }
 }

@@ -15,7 +15,7 @@ mod tests {
     };
 
     fn init() {
-        let _ = init_logging();
+        init_logging();
     }
 
     fn setup_test_env() -> (
