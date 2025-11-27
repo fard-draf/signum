@@ -22,8 +22,8 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: myapp-${{ matrix.os }}
+          name: signum-${{ matrix.os }}
           path: |
-            target/release/myapp*
-            target/release/myapp.exe
+            target/release/signum*
+            target/release/signum.exe
 
