@@ -127,7 +127,7 @@ impl CryptService {
             let rel = entry
                 .strip_prefix(&input_root)
                 .map_err(|_| AppError::Path(ErrPath::InvalidPath))?;
-            let aad = portable_rel_label(rel)?;
+            let aad = portable_tail_label(rel, 1)?;
             let data = fs::read(&entry).map_err(|_| AppError::Path(ErrPath::ReadError))?;
             let sealed = encrypt_with_aad(&data, &key, aad.as_bytes())?;
 
@@ -195,7 +195,7 @@ impl CryptService {
                 .map_err(|_| AppError::Path(ErrPath::InvalidPath))?;
 
             let rel_plain = strip_enc_suffix(rel_enc)?;
-            let aad = portable_rel_label(&rel_plain)?;
+            let aad = portable_tail_label(&rel_plain, 1)?;
             let data = fs::read(&entry).map_err(|_| AppError::Path(ErrPath::ReadError))?;
             let plain = decrypt_with_aad(&data, &key, Some(aad.as_bytes()))?;
 
@@ -325,7 +325,13 @@ fn portable_tail_label(path: &Path, count: usize) -> Result<String, AppError> {
     if comps.is_empty() {
         return Err(AppError::Path(ErrPath::InvalidPath));
     }
-    let mut tail = comps.iter().rev().take(count).cloned().collect::<Vec<_>>();
+    let effective = count.max(1);
+    let mut tail = comps
+        .iter()
+        .rev()
+        .take(effective)
+        .cloned()
+        .collect::<Vec<_>>();
     tail.reverse();
     Ok(tail.join("/"))
 }
