@@ -39,21 +39,20 @@ mod tests {
 
     #[test]
     fn uses_portable_dir_when_flag_enabled() {
-        let _guard = lock_env();
+        let guard = lock_env();
+        let _guard = guard;
         unsafe {
             env::remove_var("SIGNUM_DATA_DIR");
+            env::remove_var("SIGNUM_SHARED_DIR");
         }
 
         let config = AppConfig::new(None).expect("Failed to build config with portable flag");
 
-        unsafe {
-            env::remove_var("SIGNUM_SHARED_DIR");
-        }
-
         let exe_dir = env::current_exe().expect("Failed to get current exe");
         let expected = exe_dir
             .parent()
-            .expect("Exe has no parent directory")
+            .and_then(|p| p.parent())
+            .expect("Exe has no grandparent directory")
             .join("signum-data")
             .join("Signum");
         assert_eq!(config.base_directory, expected);
@@ -63,7 +62,8 @@ mod tests {
 
     #[test]
     fn uses_shared_dir_env_when_set() {
-        let _guard = lock_env();
+        let guard = lock_env();
+        let _guard = guard;
         let temp_dir = tempfile::tempdir().expect("tempdir");
         unsafe {
             env::remove_var("SIGNUM_DATA_DIR");

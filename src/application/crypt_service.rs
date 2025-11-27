@@ -101,29 +101,33 @@ impl CryptService {
         if !input_root.is_dir() {
             return Err(AppError::Path(ErrPath::DirectoryNotFound));
         }
-        let replace_original = output_dir.is_none();
-        let (mut output_root, final_destination) = if let Some(custom) = output_dir {
-            let path = PathBuf::from(custom);
-            if path.exists() {
-                self.best_effort_wipe_dir(&path);
-                fs::remove_dir_all(&path).map_err(|_| AppError::Path(ErrPath::WriteError))?;
-            }
-            self.fs.create_directory(&path.to_string_lossy())?;
-            (path, None)
-        } else {
-            let temp = default_enc_temp_dir(&input_root)?;
-            if temp.exists() {
-                fs::remove_dir_all(&temp).map_err(|_| AppError::Path(ErrPath::WriteError))?;
-            }
-            self.fs.create_directory(&temp.to_string_lossy())?;
-            (temp.clone(), Some(input_root.clone()))
-        };
+        let in_place = output_dir.is_none();
+        let (mut output_root, final_destination): (PathBuf, Option<PathBuf>) =
+            if let Some(custom) = output_dir {
+                let path = PathBuf::from(custom);
+                if path.exists() {
+                    self.best_effort_wipe_dir(&path);
+                    fs::remove_dir_all(&path).map_err(|_| AppError::Path(ErrPath::WriteError))?;
+                }
+                self.fs.create_directory(&path.to_string_lossy())?;
+                (path, None)
+            } else {
+                (input_root.clone(), None)
+            };
 
         let mut temp_pw = raw_pw.to_string();
         let mut key = derive_key_from_password(temp_pw.as_mut_str(), user)?;
         temp_pw.zeroize();
 
         for entry in walk_files(&input_root)? {
+            if entry
+                .file_name()
+                .and_then(|s| s.to_str())
+                .map(|n| n.ends_with(".enc"))
+                .unwrap_or(false)
+            {
+                continue;
+            }
             let rel = entry
                 .strip_prefix(&input_root)
                 .map_err(|_| AppError::Path(ErrPath::InvalidPath))?;
@@ -145,18 +149,19 @@ impl CryptService {
                 }
             }
             self.fs.write_file(&dest.to_string_lossy(), &sealed)?;
+            if in_place {
+                self.best_effort_wipe_file(&entry);
+                let _ = fs::remove_file(&entry);
+            }
         }
 
         key.zeroize();
-        if replace_original {
+        if let Some(dest) = final_destination {
             self.best_effort_wipe_dir(&input_root);
             fs::remove_dir_all(&input_root).map_err(|_| AppError::Path(ErrPath::WriteError))?;
-            if let Some(dest) = final_destination {
-                fs::rename(&output_root, &dest).map_err(|_| AppError::Path(ErrPath::WriteError))?;
-                self.sync_dir(dest.parent());
-                output_root = dest;
-            }
-            self.sync_dir(output_root.parent());
+            fs::rename(&output_root, &dest).map_err(|_| AppError::Path(ErrPath::WriteError))?;
+            self.sync_dir(dest.parent());
+            output_root = dest;
         }
         self.sync_dir(Some(&output_root));
         Ok(output_root)
@@ -173,23 +178,19 @@ impl CryptService {
         if !enc_root.is_dir() {
             return Err(AppError::Path(ErrPath::DirectoryNotFound));
         }
-        let replace_original = output_dir.is_none();
-        let (mut output_root, final_destination) = if let Some(custom) = output_dir {
-            let path = PathBuf::from(custom);
-            if path.exists() {
-                self.best_effort_wipe_dir(&path);
-                fs::remove_dir_all(&path).map_err(|_| AppError::Path(ErrPath::WriteError))?;
-            }
-            self.fs.create_directory(&path.to_string_lossy())?;
-            (path, None)
-        } else {
-            let temp = default_dec_temp_dir(&enc_root)?;
-            if temp.exists() {
-                fs::remove_dir_all(&temp).map_err(|_| AppError::Path(ErrPath::WriteError))?;
-            }
-            self.fs.create_directory(&temp.to_string_lossy())?;
-            (temp.clone(), Some(resolve_dec_destination(&enc_root)?))
-        };
+        let in_place = output_dir.is_none();
+        let (mut output_root, final_destination): (PathBuf, Option<PathBuf>) =
+            if let Some(custom) = output_dir {
+                let path = PathBuf::from(custom);
+                if path.exists() {
+                    self.best_effort_wipe_dir(&path);
+                    fs::remove_dir_all(&path).map_err(|_| AppError::Path(ErrPath::WriteError))?;
+                }
+                self.fs.create_directory(&path.to_string_lossy())?;
+                (path, None)
+            } else {
+                (enc_root.clone(), None)
+            };
 
         let mut temp_pw = raw_pw.to_string();
         let mut key = derive_key_from_password(temp_pw.as_mut_str(), user)?;
@@ -216,17 +217,19 @@ impl CryptService {
                 }
             }
             self.fs.write_file(&dest.to_string_lossy(), &plain)?;
+            if in_place {
+                self.best_effort_wipe_file(&entry);
+                let _ = fs::remove_file(&entry);
+            }
         }
 
         key.zeroize();
-        if replace_original {
+        if let Some(dest) = final_destination {
             self.best_effort_wipe_dir(&enc_root);
             fs::remove_dir_all(&enc_root).map_err(|_| AppError::Path(ErrPath::WriteError))?;
-            if let Some(dest) = final_destination {
-                fs::rename(&output_root, &dest).map_err(|_| AppError::Path(ErrPath::WriteError))?;
-                self.sync_dir(dest.parent());
-                output_root = dest;
-            }
+            fs::rename(&output_root, &dest).map_err(|_| AppError::Path(ErrPath::WriteError))?;
+            self.sync_dir(dest.parent());
+            output_root = dest;
         }
         self.sync_dir(Some(&output_root));
         Ok(output_root)

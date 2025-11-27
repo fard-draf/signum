@@ -48,8 +48,10 @@ impl AppConfig {
 
         let exe_dir = env::current_exe().map_err(|_| AppError::Path(ErrPath::DirectoryNotFound))?;
         // Shared root = parent of the binary directory (e.g. Tools/ containing multiple builds)
-        if let Some(parent) = exe_dir.parent() {
-            return Ok(Some(parent.join("signum-data")));
+        if let Some(bin_dir) = exe_dir.parent() {
+            if let Some(parent) = bin_dir.parent() {
+                return Ok(Some(parent.join("signum-data")));
+            }
         }
 
         Ok(None)
