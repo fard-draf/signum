@@ -249,20 +249,25 @@ fn default_decrypted_path(cipher_path: &str) -> PathBuf {
 }
 
 fn canonical_label(path: &str) -> Result<String, AppError> {
-    match fs::canonicalize(path) {
-        Ok(p) => p
-            .to_str()
-            .map(|s| s.to_string())
-            .ok_or(AppError::Path(ErrPath::InvalidPath)),
-        Err(_) => {
-            let base = env::current_dir().map_err(|_| AppError::Path(ErrPath::InvalidPath))?;
-            let joined = base.join(path);
-            joined
-                .to_str()
-                .map(|s| s.to_string())
-                .ok_or(AppError::Path(ErrPath::InvalidPath))
+    // Portable, cross-OS label: last two path components joined with '/'
+    // This keeps binding to parent + file name while remaining stable across mount points.
+    let p = Path::new(path);
+    let mut comps = p.components().rev().take(2).collect::<Vec<_>>();
+    comps.reverse();
+    if comps.is_empty() {
+        return Err(AppError::Path(ErrPath::InvalidPath));
+    }
+    let mut parts = Vec::new();
+    for c in comps {
+        let s = c.as_os_str().to_string_lossy().into_owned();
+        if !s.is_empty() {
+            parts.push(s);
         }
     }
+    if parts.is_empty() {
+        return Err(AppError::Path(ErrPath::InvalidPath));
+    }
+    Ok(parts.join("/"))
 }
 
 fn strip_enc_suffix(path: &Path) -> Result<PathBuf, AppError> {
