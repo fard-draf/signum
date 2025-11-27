@@ -2,7 +2,7 @@ use rand::RngCore;
 use std::env;
 use std::fs::{self, OpenOptions};
 use std::io::Write;
-use std::path::{Path, PathBuf};
+use std::path::{Component, Path, PathBuf};
 use zeroize::Zeroize;
 
 use crate::{
@@ -127,7 +127,7 @@ impl CryptService {
             let rel = entry
                 .strip_prefix(&input_root)
                 .map_err(|_| AppError::Path(ErrPath::InvalidPath))?;
-            let aad = rel.to_string_lossy();
+            let aad = portable_rel_label(rel)?;
             let data = fs::read(&entry).map_err(|_| AppError::Path(ErrPath::ReadError))?;
             let sealed = encrypt_with_aad(&data, &key, aad.as_bytes())?;
 
@@ -195,7 +195,7 @@ impl CryptService {
                 .map_err(|_| AppError::Path(ErrPath::InvalidPath))?;
 
             let rel_plain = strip_enc_suffix(rel_enc)?;
-            let aad = rel_plain.to_string_lossy();
+            let aad = portable_rel_label(&rel_plain)?;
             let data = fs::read(&entry).map_err(|_| AppError::Path(ErrPath::ReadError))?;
             let plain = decrypt_with_aad(&data, &key, Some(aad.as_bytes()))?;
 
@@ -249,25 +249,8 @@ fn default_decrypted_path(cipher_path: &str) -> PathBuf {
 }
 
 fn canonical_label(path: &str) -> Result<String, AppError> {
-    // Portable, cross-OS label: last two path components joined with '/'
-    // This keeps binding to parent + file name while remaining stable across mount points.
-    let p = Path::new(path);
-    let mut comps = p.components().rev().take(2).collect::<Vec<_>>();
-    comps.reverse();
-    if comps.is_empty() {
-        return Err(AppError::Path(ErrPath::InvalidPath));
-    }
-    let mut parts = Vec::new();
-    for c in comps {
-        let s = c.as_os_str().to_string_lossy().into_owned();
-        if !s.is_empty() {
-            parts.push(s);
-        }
-    }
-    if parts.is_empty() {
-        return Err(AppError::Path(ErrPath::InvalidPath));
-    }
-    Ok(parts.join("/"))
+    // Bind to the file name only (no parent outside the USB scope), portable separators.
+    portable_tail_label(Path::new(path), 1)
 }
 
 fn strip_enc_suffix(path: &Path) -> Result<PathBuf, AppError> {
@@ -326,6 +309,33 @@ fn resolve_dec_destination(enc_root: &Path) -> Result<PathBuf, AppError> {
         .parent()
         .map(|p| p.join(clean_name))
         .unwrap_or_else(|| PathBuf::from(clean_name)))
+}
+
+fn portable_components(path: &Path) -> Vec<String> {
+    path.components()
+        .filter_map(|c| match c {
+            Component::Normal(os) => Some(os.to_string_lossy().into_owned()),
+            _ => None,
+        })
+        .collect()
+}
+
+fn portable_tail_label(path: &Path, count: usize) -> Result<String, AppError> {
+    let comps = portable_components(path);
+    if comps.is_empty() {
+        return Err(AppError::Path(ErrPath::InvalidPath));
+    }
+    let mut tail = comps.iter().rev().take(count).cloned().collect::<Vec<_>>();
+    tail.reverse();
+    Ok(tail.join("/"))
+}
+
+fn portable_rel_label(path: &Path) -> Result<String, AppError> {
+    let comps = portable_components(path);
+    if comps.is_empty() {
+        return Err(AppError::Path(ErrPath::InvalidPath));
+    }
+    Ok(comps.join("/"))
 }
 
 fn is_wipe_enabled() -> bool {
