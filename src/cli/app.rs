@@ -39,7 +39,7 @@ impl SignumCli {
 
     pub fn run(&self) -> Result<(), AppError> {
         // Interface principale du CLI
-        println!("=== Signum CLI ===");
+        println!("=== Signum CLI 🔐 ===");
         println!("Une application moderne pour signer, vérifier et chiffrer des fichiers");
 
         loop {
@@ -59,7 +59,7 @@ impl SignumCli {
     }
 
     fn register(&self) -> Result<(), AppError> {
-        println!("\n=== Inscription ===");
+        println!("\n=== Inscription ✍️ ===");
 
         let username = Text::new("Nom d'utilisateur:")
             .with_help_message("Minimum 3 caractères, lettres uniquement")
@@ -98,7 +98,7 @@ impl SignumCli {
     }
 
     fn login(&self) -> Result<(), AppError> {
-        println!("\n=== Connexion ===");
+        println!("\n=== Connexion 🔑 ===");
 
         let username = Text::new("Nom d'utilisateur:")
             .prompt()
@@ -165,7 +165,7 @@ impl SignumCli {
     }
 
     fn sign_file_action(&self, _user: &User, signing_key: &SigningKey) -> Result<(), AppError> {
-        println!("\n=== Signer un fichier ===");
+        println!("\n=== Signer un fichier ✍️ ===");
 
         // Demander le chemin du fichier à signer
         let file_path = crate::cli::ui::file_prompt("Chemin du fichier à signer:")?;
@@ -189,7 +189,7 @@ impl SignumCli {
     }
 
     fn verify_signature_action(&self, user: &User, password: &mut String) -> Result<(), AppError> {
-        println!("\n=== Vérifier une signature ===");
+        println!("\n=== Vérifier une signature 🔍 ===");
 
         // Demander le chemin du fichier original
         let file_path = crate::cli::ui::file_prompt("Chemin du fichier original:")?;
@@ -222,7 +222,7 @@ impl SignumCli {
     }
 
     fn encrypt_file_action(&self, user: &User, password: &mut String) -> Result<(), AppError> {
-        println!("\n=== Chiffrer un fichier ===");
+        println!("\n=== Chiffrer un fichier 🔒 ===");
 
         // Demander le chemin du fichier à chiffrer
         let file_path = crate::cli::ui::file_prompt("Chemin du fichier à chiffrer:")?;
@@ -242,7 +242,7 @@ impl SignumCli {
             .encrypt_file(user, password, &file_path, output_path.as_deref())
         {
             Ok(path) => println!(
-                "✅ Fichier chiffré: {}. Synchronisation terminée, vous pouvez retirer la clé.",
+                "✅ Fichier chiffré: {}. Synchronisation terminée, vous pouvez retirer la clé. 📀",
                 path.to_string_lossy()
             ),
             Err(e) => println!("❌ Erreur lors du chiffrement: {:?}", e),
@@ -252,7 +252,7 @@ impl SignumCli {
     }
 
     fn decrypt_file_action(&self, user: &User, password: &mut String) -> Result<(), AppError> {
-        println!("\n=== Déchiffrer un fichier ===");
+        println!("\n=== Déchiffrer un fichier 🔓 ===");
 
         // Demander le chemin du fichier à déchiffrer
         let file_path = crate::cli::ui::file_prompt("Chemin du fichier à déchiffrer:")?;
@@ -279,7 +279,7 @@ impl SignumCli {
     }
 
     fn encrypt_dir_action(&self, user: &User, password: &mut String) -> Result<(), AppError> {
-        println!("\n=== Chiffrer un répertoire ===");
+        println!("\n=== Chiffrer un répertoire 📦🔒 ===");
         let dir_path = crate::cli::ui::file_prompt("Chemin du répertoire à chiffrer:")?;
         let output_path = crate::cli::ui::output_file_prompt()?;
 
@@ -301,7 +301,7 @@ impl SignumCli {
     }
 
     fn decrypt_dir_action(&self, user: &User, password: &mut String) -> Result<(), AppError> {
-        println!("\n=== Déchiffrer un répertoire ===");
+        println!("\n=== Déchiffrer un répertoire 📦🔓 ===");
         let dir_path = crate::cli::ui::file_prompt("Chemin du répertoire chiffré:")?;
         let output_path = crate::cli::ui::output_file_prompt()?;
 

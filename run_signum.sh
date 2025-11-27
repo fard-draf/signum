@@ -3,6 +3,7 @@ set -euo pipefail
 
 # Portable launcher for Signum; place next to the compiled binary on USB.
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+ROOT_DIR="$(cd -- "${SCRIPT_DIR}/.." && pwd)"
 BIN="${SCRIPT_DIR}/signum"
 
 if [[ ! -x "$BIN" ]]; then
@@ -11,6 +12,7 @@ if [[ ! -x "$BIN" ]]; then
 fi
 
 export SIGNUM_PORTABLE=1
-export SIGNUM_DATA_DIR="${SIGNUM_DATA_DIR:-"${SCRIPT_DIR}/signum-data"}"
+export SIGNUM_SHARED_DIR="${SIGNUM_SHARED_DIR:-"${ROOT_DIR}/signum-data"}"
+export SIGNUM_CONFIG_PATH="${SIGNUM_CONFIG_PATH:-"${ROOT_DIR}/signum.conf"}"
 
 exec "$BIN" "$@"

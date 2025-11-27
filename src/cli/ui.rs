@@ -93,7 +93,8 @@ impl fmt::Display for NavItem {
 }
 
 fn path_navigator(message: &str) -> Result<String, AppError> {
-    let mut current = env::current_dir().map_err(|_| AppError::Path(ErrPath::DirectoryNotFound))?;
+    let mut current = navigation_root()
+        .unwrap_or_else(|| env::current_dir().unwrap_or_else(|_| PathBuf::from(".")));
 
     loop {
         let options = build_nav_items(&current)?;
@@ -158,35 +159,54 @@ fn build_nav_items(current: &Path) -> Result<Vec<NavItem>, AppError> {
 
     let mut options = Vec::new();
     options.push(NavItem {
-        label: "[Sélectionner ce répertoire]".to_string(),
+        label: "📍 Sélectionner ce répertoire".to_string(),
         value: NavValue::SelectCurrent(current.to_path_buf()),
     });
 
     if let Some(parent) = current.parent() {
         options.push(NavItem {
-            label: "[..] Revenir en arrière".to_string(),
+            label: "↩️  .. Revenir en arrière".to_string(),
             value: NavValue::Parent(parent.to_path_buf()),
         });
     }
 
     for (name, path) in dirs {
         options.push(NavItem {
-            label: format!("[D] {}", name),
+            label: format!("📁 {}", name),
             value: NavValue::Dir(path),
         });
     }
 
     for (name, path) in files {
         options.push(NavItem {
-            label: format!("    {}", name),
+            label: format!("📄 {}", name),
             value: NavValue::File(path),
         });
     }
 
     options.push(NavItem {
-        label: "Entrer un chemin manuellement".to_string(),
+        label: "⌨️  Entrer un chemin manuellement".to_string(),
         value: NavValue::ManualEntry,
     });
 
     Ok(options)
+}
+
+fn navigation_root() -> Option<PathBuf> {
+    if let Some(root) = env::var_os("SIGNUM_NAV_ROOT") {
+        return Some(PathBuf::from(root));
+    }
+    if let Some(shared) = env::var_os("SIGNUM_SHARED_DIR") {
+        let mut path = PathBuf::from(shared);
+        path.pop(); // go to parent of signum-data
+        return Some(path);
+    }
+    if let Ok(exe) = env::current_exe() {
+        if let Some(bin_dir) = exe.parent() {
+            if let Some(parent) = bin_dir.parent() {
+                return Some(parent.to_path_buf());
+            }
+        }
+    }
+    None
 }
