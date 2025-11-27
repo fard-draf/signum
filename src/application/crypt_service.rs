@@ -1,7 +1,7 @@
 use rand::RngCore;
 use std::env;
 use std::fs::{self, OpenOptions};
-use std::io::Write;
+use std::io::{ErrorKind, Write};
 use std::path::{Component, Path, PathBuf};
 use zeroize::Zeroize;
 
@@ -128,7 +128,14 @@ impl CryptService {
                 .strip_prefix(&input_root)
                 .map_err(|_| AppError::Path(ErrPath::InvalidPath))?;
             let aad = portable_tail_label(rel, 1)?;
-            let data = fs::read(&entry).map_err(|_| AppError::Path(ErrPath::ReadError))?;
+            let data = match fs::read(&entry) {
+                Ok(d) => d,
+                Err(e) if e.kind() == ErrorKind::PermissionDenied => {
+                    // Skip unreadable system/hidden files instead of aborting the whole directory
+                    continue;
+                }
+                Err(_) => return Err(AppError::Path(ErrPath::ReadError)),
+            };
             let sealed = encrypt_with_aad(&data, &key, aad.as_bytes())?;
 
             let dest = add_enc_suffix(&output_root.join(rel))?;
@@ -225,14 +232,18 @@ fn walk_files(root: &Path) -> Result<Vec<PathBuf>, AppError> {
     let mut files = Vec::new();
     let mut stack = vec![root.to_path_buf()];
     while let Some(path) = stack.pop() {
-        let entries = fs::read_dir(&path).map_err(|_| AppError::Path(ErrPath::ReadError))?;
-        for entry in entries {
-            let entry = entry.map_err(|_| AppError::Path(ErrPath::ReadError))?;
+        let entries = match fs::read_dir(&path) {
+            Ok(e) => e,
+            Err(e) if e.kind() == ErrorKind::PermissionDenied => continue,
+            Err(_) => return Err(AppError::Path(ErrPath::ReadError)),
+        };
+        for entry in entries.flatten() {
             let p = entry.path();
-            if p.is_dir() {
-                stack.push(p);
-            } else {
-                files.push(p);
+            match entry.file_type() {
+                Ok(ft) if ft.is_dir() => stack.push(p),
+                Ok(_) => files.push(p),
+                Err(e) if e.kind() == ErrorKind::PermissionDenied => continue,
+                Err(_) => return Err(AppError::Path(ErrPath::ReadError)),
             }
         }
     }
