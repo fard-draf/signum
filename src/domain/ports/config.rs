@@ -15,10 +15,15 @@ impl AppConfig {
     pub fn new(custom_base_dir: Option<PathBuf>) -> Result<Self, AppError> {
         let app_name = "Signum".to_string();
 
-        let base_directory = if let Some(dir) = custom_base_dir {
-            dir
-        } else {
-            Self::get_default_base_directory()?
+        let base_directory = match custom_base_dir {
+            Some(dir) => dir,
+            None => {
+                if let Some(portable_dir) = Self::get_portable_base_directory()? {
+                    portable_dir
+                } else {
+                    Self::get_default_base_directory()?
+                }
+            }
         };
 
         let app_dir = base_directory.join(&app_name);
@@ -31,6 +36,25 @@ impl AppConfig {
             base_directory: app_dir,
             app_name,
         })
+    }
+
+    fn get_portable_base_directory() -> Result<Option<PathBuf>, AppError> {
+        if let Some(portable_dir) = env::var_os("SIGNUM_DATA_DIR") {
+            return Ok(Some(PathBuf::from(portable_dir)));
+        }
+
+        if let Some(flag) = env::var_os("SIGNUM_PORTABLE") {
+            if flag != "0" && flag != "false" {
+                let exe_dir = env::current_exe()
+                    .map_err(|_| AppError::Path(ErrPath::DirectoryNotFound))?;
+                if let Some(parent) = exe_dir.parent() {
+                    return Ok(Some(parent.join("signum-data")));
+                }
+                return Err(AppError::Path(ErrPath::DirectoryNotFound));
+            }
+        }
+
+        Ok(None)
     }
 
     fn get_default_base_directory() -> Result<PathBuf, AppError> {

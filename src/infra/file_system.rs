@@ -2,6 +2,8 @@ use crate::domain::ports::fs::FileSystem;
 use crate::error::{AppError, ErrPath};
 use std::fs;
 use std::path::{Path, PathBuf};
+#[cfg(unix)]
+use std::os::unix::fs::PermissionsExt;
 
 #[derive(Clone)]
 pub struct FileSystemAdapter;
@@ -34,7 +36,13 @@ impl FileSystem for FileSystemAdapter {
             }
         }
 
-        fs::write(path, data).map_err(|_| AppError::Path(ErrPath::WriteError))
+        fs::write(path, data).map_err(|_| AppError::Path(ErrPath::WriteError))?;
+        #[cfg(unix)]
+        {
+            let perms = fs::Permissions::from_mode(0o600);
+            let _ = fs::set_permissions(path, perms);
+        }
+        Ok(())
     }
 
     fn file_exists(&self, path: &str) -> bool {
@@ -52,7 +60,14 @@ impl FileSystem for FileSystemAdapter {
     }
 
     fn create_directory(&self, path: &str) -> Result<(), AppError> {
-        fs::create_dir_all(path).map_err(|_| AppError::Path(ErrPath::DirectoryCreationFailed))
+        fs::create_dir_all(path)
+            .map_err(|_| AppError::Path(ErrPath::DirectoryCreationFailed))?;
+        #[cfg(unix)]
+        {
+            let perms = fs::Permissions::from_mode(0o700);
+            let _ = fs::set_permissions(path, perms);
+        }
+        Ok(())
     }
 
     fn canonicalize_path(&self, path: &str) -> Result<String, AppError> {

@@ -49,19 +49,19 @@ mod tests {
     }
 
     // Fonction pour sauvegarder une clé de signature chiffrée
-    fn save_signing_key_encrypted(
-        key: &SigningKey,
-        path: &str,
-        user: &User,
-        password: &mut String,
-    ) -> Result<(), AppError> {
-        // Dériver la clé d'encryption à partir du mot de passe et du sel de l'utilisateur
-        let mut encryption_key = derive_key_from_password(password, user)?;
+fn save_signing_key_encrypted(
+    key: &SigningKey,
+    path: &str,
+    user: &User,
+    password: &str,
+) -> Result<(), AppError> {
+    let mut pw = password.to_string();
+    let mut encryption_key = derive_key_from_password(&mut pw, user)?;
 
-        // Chiffrer et sauvegarder la clé
-        let mut key_bytes = key.to_bytes();
-        let encrypted = encrypt_data(&key_bytes, &encryption_key)?;
-        fs::write(path, &encrypted).map_err(|e| AppError::IO(crate::error::ErrIO::IoError(e)))?;
+    // Chiffrer et sauvegarder la clé
+    let mut key_bytes = key.to_bytes();
+    let encrypted = encrypt_data(&key_bytes, &encryption_key)?;
+    fs::write(path, &encrypted).map_err(|e| AppError::IO(crate::error::ErrIO::IoError(e)))?;
 
         // Nettoyer les données sensibles
         key_bytes.zeroize();
@@ -71,13 +71,13 @@ mod tests {
     }
 
     // Fonction pour charger une clé de signature chiffrée
-    fn load_signing_key_encrypted(
-        path: &str,
-        user: &User,
-        password: &mut String,
-    ) -> Result<SigningKey, AppError> {
-        // Dériver la clé d'encryption à partir du mot de passe et du sel de l'utilisateur
-        let mut encryption_key = derive_key_from_password(password, user)?;
+fn load_signing_key_encrypted(
+    path: &str,
+    user: &User,
+    password: &str,
+) -> Result<SigningKey, AppError> {
+    let mut pw = password.to_string();
+    let mut encryption_key = derive_key_from_password(&mut pw, user)?;
 
         // Lire et déchiffrer la clé
         let encrypted =
@@ -150,11 +150,11 @@ mod tests {
         let original_key = SigningKey::generate(&mut OsRng);
 
         // Sauvegarder la clé de manière chiffrée avec les informations utilisateur
-        save_signing_key_encrypted(&original_key, &sk_path, &user, &mut password)
+        save_signing_key_encrypted(&original_key, &sk_path, &user, &password)
             .expect("Failed to save encrypted signing key");
 
         // Charger la clé chiffrée en dérivant la clé d'encryption à partir des mêmes informations
-        let loaded_key = load_signing_key_encrypted(&sk_path, &user, &mut password)
+        let loaded_key = load_signing_key_encrypted(&sk_path, &user, &password)
             .expect("Failed to load encrypted signing key");
 
         // Vérifier que les clés sont identiques
@@ -162,7 +162,7 @@ mod tests {
 
         // Tester avec un mauvais mot de passe
         let mut wrong_password = "Wr0ng@P4ssw0rd5678".to_string();
-        let result = load_signing_key_encrypted(&sk_path, &user, &mut wrong_password);
+        let result = load_signing_key_encrypted(&sk_path, &user, &wrong_password);
         assert!(result.is_err(), "Loading with wrong password should fail");
 
         // Nettoyer
@@ -221,7 +221,7 @@ mod tests {
         let original_signature = sk.sign(message);
 
         // 6. Simuler une déconnexion puis reconnexion (recharger la clé privée)
-        let mut loaded_sk = load_signing_key_encrypted(&sk_path, &user, &mut password)
+        let mut loaded_sk = load_signing_key_encrypted(&sk_path, &user, &password)
             .expect("Failed to load signing key");
         let loaded_signature = loaded_sk.sign(message);
 
@@ -266,7 +266,7 @@ mod tests {
 
         // Essayer de charger avec le second utilisateur (même mot de passe, sel différent)
         // Cela devrait échouer car la clé dérivée sera différente
-        let result = load_signing_key_encrypted(&sk_path, &user2, &mut password2);
+        let result = load_signing_key_encrypted(&sk_path, &user2, &password2);
         assert!(
             result.is_err(),
             "Loading with different salt should fail even with same password"

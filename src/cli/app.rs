@@ -1,6 +1,6 @@
 // src/cli/app.rs
 use crate::{
-    application::{auth_service::AuthService, key_service::KeyService},
+    application::{auth_service::AuthService, crypt_service::CryptService, key_service::KeyService},
     domain::{ports::config::AppConfig, user::entities::User},
     error::AppError,
     infra::{file_system::FileSystemAdapter, user_repo::UserFileRepository},
@@ -12,18 +12,26 @@ use zeroize::Zeroize;
 
 pub struct SignumCli {
     auth_service: AuthService<UserFileRepository<FileSystemAdapter>, FileSystemAdapter>,
+    crypt_service: CryptService,
 }
 
 impl SignumCli {
     pub fn new() -> Result<Self, AppError> {
-        // Configuration initiale
+        // Choix du mode (OFFICE/NOMADE) au premier lancement, puis configuration initiale
+        let mode = crate::cli::mode::resolve_mode()?;
+        crate::cli::mode::apply_mode_environment(mode)?;
+
         let config = AppConfig::new(None)?;
         let fs_adapter = FileSystemAdapter::new();
         let user_repository = UserFileRepository::new(fs_adapter.clone(), config.clone());
         let key_service = KeyService::new(fs_adapter.clone(), config.clone());
-        let auth_service = AuthService::new(user_repository, fs_adapter, config, key_service);
+        let auth_service = AuthService::new(user_repository, fs_adapter.clone(), config, key_service);
+        let crypt_service = CryptService::new(fs_adapter);
 
-        Ok(Self { auth_service })
+        Ok(Self {
+            auth_service,
+            crypt_service,
+        })
     }
 
     pub fn run(&self) -> Result<(), AppError> {
@@ -115,7 +123,7 @@ impl SignumCli {
     fn action_menu(
         &self,
         user: &User,
-        mut signing_key: SigningKey,
+        signing_key: SigningKey,
         password: &mut String,
     ) -> Result<(), AppError> {
         let mut continue_session = true;
@@ -128,19 +136,19 @@ impl SignumCli {
                     self.sign_file_action(user, &signing_key)?;
                 }
                 "Vérifier une signature" => {
-                    self.verify_signature_action(user)?;
+                    self.verify_signature_action(user, password)?;
                 }
                 "Chiffrer un fichier" => {
-                    let mut temp_pw = String::new();
-                    password.clone_into(&mut temp_pw);
-                    self.encrypt_file_action(user, &mut temp_pw)?;
-                    temp_pw.zeroize();
+                    self.with_password(password, |pw| self.encrypt_file_action(user, pw))?;
                 }
                 "Déchiffrer un fichier" => {
-                    let mut temp_pw = String::new();
-                    password.clone_into(&mut temp_pw);
-                    self.decrypt_file_action(user, &mut temp_pw)?;
-                    temp_pw.zeroize();
+                    self.with_password(password, |pw| self.decrypt_file_action(user, pw))?;
+                }
+                "Chiffrer un répertoire" => {
+                    self.with_password(password, |pw| self.encrypt_dir_action(user, pw))?;
+                }
+                "Déchiffrer un répertoire" => {
+                    self.with_password(password, |pw| self.decrypt_dir_action(user, pw))?;
                 }
                 "Déconnexion" => {
                     println!("Vous êtes déconnecté");
@@ -153,7 +161,7 @@ impl SignumCli {
         Ok(())
     }
 
-    fn sign_file_action(&self, user: &User, signing_key: &SigningKey) -> Result<(), AppError> {
+    fn sign_file_action(&self, _user: &User, signing_key: &SigningKey) -> Result<(), AppError> {
         println!("\n=== Signer un fichier ===");
 
         // Demander le chemin du fichier à signer
@@ -177,7 +185,7 @@ impl SignumCli {
         Ok(())
     }
 
-    fn verify_signature_action(&self, user: &User) -> Result<(), AppError> {
+    fn verify_signature_action(&self, user: &User, password: &mut String) -> Result<(), AppError> {
         println!("\n=== Vérifier une signature ===");
 
         // Demander le chemin du fichier original
@@ -187,7 +195,9 @@ impl SignumCli {
         let signature_path = crate::cli::ui::file_prompt("Chemin du fichier de signature:")?;
 
         // Charger la clé de vérification de l'utilisateur
-        let verifying_key = match self.auth_service.load_verifying_key(user) {
+        let mut temp_pw = String::new();
+        password.clone_into(&mut temp_pw);
+        let verifying_key = match self.auth_service.load_verifying_key(user, &mut temp_pw) {
             Ok(vk) => vk,
             Err(e) => {
                 println!(
@@ -197,6 +207,7 @@ impl SignumCli {
                 return Ok(());
             }
         };
+        temp_pw.zeroize();
 
         // Appeler la fonction de vérification
         match crate::cli::commands::verify_signature(&file_path, &signature_path, &verifying_key) {
@@ -223,7 +234,9 @@ impl SignumCli {
         let output_path = crate::cli::ui::output_file_prompt()?;
 
         // Appeler la fonction de chiffrement
-        match crate::cli::commands::encrypt_file(&file_path, password, user, output_path.as_deref())
+        match self
+            .crypt_service
+            .encrypt_file(user, password, &file_path, output_path.as_deref())
         {
             Ok(_) => {}
             Err(e) => println!("❌ Erreur lors du chiffrement: {:?}", e),
@@ -248,12 +261,54 @@ impl SignumCli {
         let output_path = crate::cli::ui::output_file_prompt()?;
 
         // Appeler la fonction de déchiffrement
-        match crate::cli::commands::decrypt_file(&file_path, password, user, output_path.as_deref())
+        match self
+            .crypt_service
+            .decrypt_file(user, password, &file_path, output_path.as_deref())
         {
             Ok(_) => {}
             Err(e) => println!("❌ Erreur lors du déchiffrement: {:?}", e),
         }
 
         Ok(())
+    }
+
+    fn encrypt_dir_action(&self, user: &User, password: &mut String) -> Result<(), AppError> {
+        println!("\n=== Chiffrer un répertoire ===");
+        let dir_path = crate::cli::ui::file_prompt("Chemin du répertoire à chiffrer:")?;
+        let output_path = crate::cli::ui::output_file_prompt()?;
+
+        match self
+            .crypt_service
+            .encrypt_directory(user, password, &dir_path, output_path.as_deref())
+        {
+            Ok(path) => println!("✅ Répertoire chiffré dans: {}", path.to_string_lossy()),
+            Err(e) => println!("❌ Erreur lors du chiffrement du répertoire: {:?}", e),
+        }
+        Ok(())
+    }
+
+    fn decrypt_dir_action(&self, user: &User, password: &mut String) -> Result<(), AppError> {
+        println!("\n=== Déchiffrer un répertoire ===");
+        let dir_path = crate::cli::ui::file_prompt("Chemin du répertoire chiffré:")?;
+        let output_path = crate::cli::ui::output_file_prompt()?;
+
+        match self
+            .crypt_service
+            .decrypt_directory(user, password, &dir_path, output_path.as_deref())
+        {
+            Ok(path) => println!("✅ Répertoire déchiffré dans: {}", path.to_string_lossy()),
+            Err(e) => println!("❌ Erreur lors du déchiffrement du répertoire: {:?}", e),
+        }
+        Ok(())
+    }
+
+    fn with_password<F>(&self, password: &str, mut f: F) -> Result<(), AppError>
+    where
+        F: FnMut(&mut String) -> Result<(), AppError>,
+    {
+        let mut temp = password.to_string();
+        let res = f(&mut temp);
+        temp.zeroize();
+        res
     }
 }

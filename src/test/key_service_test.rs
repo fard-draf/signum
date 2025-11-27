@@ -65,6 +65,7 @@ mod tests {
     #[test]
     fn test_generate_and_save_user_keys() {
         let config = setup_test_config().expect("Failed to setup test config");
+        let base_dir = config.base_directory.clone();
         let fs = FileSystemAdapter::new();
         let key_service = KeyService::new(fs, config);
 
@@ -134,25 +135,27 @@ mod tests {
     #[test]
     fn test_save_and_load_verifying_key() {
         let config = setup_test_config().expect("Failed to setup test config");
+        let base_dir = config.base_directory.clone();
         let fs = FileSystemAdapter::new();
         let key_service = KeyService::new(fs, config);
 
-        let (user, _) = create_test_user();
+        let (user, password) = create_test_user();
 
         // Générer une paire de clés
         let (_, original_vk) = generate_keypair();
 
         // Sauvegarder la clé de vérification
-        let save_result = key_service.save_verifying_key(&user, &original_vk);
+        let mut pw = password.clone();
+        let save_result = key_service.save_verifying_key(&user, pw.as_mut_str(), &original_vk);
         assert!(
             save_result.is_ok(),
             "Failed to save verifying key: {:?}",
             save_result.err()
         );
-        let mut password = "Str0ng@P4ssw0rd1234".to_string();
 
         // Charger la clé de vérification
-        let loaded_vk = key_service.load_verifying_key(&user);
+        let mut load_pw = password.clone();
+        let loaded_vk = key_service.load_verifying_key(&user, load_pw.as_mut_str());
         assert!(
             loaded_vk.is_ok(),
             "Failed to load verifying key: {:?}",
@@ -166,6 +169,19 @@ mod tests {
             loaded_vk.to_bytes(),
             "Loaded verifying key should match original key"
         );
+
+        // Tamper with stored vk to ensure integrity is enforced
+        let tampered = base_dir
+            .join("users")
+            .join(user.name.name.as_str())
+            .join("keys")
+            .join("verifying_key.vk");
+        let mut bytes = std::fs::read(&tampered).expect("vk file");
+        bytes[0] ^= 0xFF;
+        std::fs::write(&tampered, &bytes).expect("rewrite");
+        let mut bad_pw = "Str0ng@P4ssw0rd1234".to_string();
+        let tampered_res = key_service.load_verifying_key(&user, bad_pw.as_mut_str());
+        assert!(tampered_res.is_err(), "tampered verifying key should fail");
     }
 
     #[test]
@@ -187,7 +203,8 @@ mod tests {
 
         // 2. Charger les clés
         let sk = key_service.load_signing_key(&user, &mut password);
-        let vk = key_service.load_verifying_key(&user);
+        let mut load_pw = password.clone();
+        let vk = key_service.load_verifying_key(&user, load_pw.as_mut_str());
 
         assert!(sk.is_ok(), "Failed to load signing key: {:?}", sk.err());
         assert!(vk.is_ok(), "Failed to load verifying key: {:?}", vk.err());

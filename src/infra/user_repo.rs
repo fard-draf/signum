@@ -1,5 +1,5 @@
 use crate::{
-    core::crypto::sym::{decrypt_data, encrypt_data},
+    core::crypto::sym::{authenticate_aad, decrypt_data, encrypt_data, verify_aad},
     domain::{
         ports::{config::AppConfig, fs::FileSystem, repository::UserRepository},
         user::{
@@ -19,6 +19,12 @@ pub struct UserFileRepository<F: FileSystem> {
     config: AppConfig,
 }
 
+#[derive(borsh::BorshSerialize, borsh::BorshDeserialize)]
+pub(crate) struct StoredMetadata {
+    pub metadata: UserMetadata,
+    pub auth_tag: Vec<u8>,
+}
+
 impl<F: FileSystem> UserFileRepository<F> {
     pub fn new(fs: F, config: AppConfig) -> Self {
         Self { fs, config }
@@ -35,7 +41,14 @@ impl<F: FileSystem> UserRepository for UserFileRepository<F> {
             let metadata = user.get_metadata();
             let metadata_bytes =
                 borsh::to_vec(&metadata).map_err(|_| AppError::Encrypt(ErrEncrypt::BorshError))?;
-            self.fs.write_file(&metadata_path, &metadata_bytes)?;
+            let auth_tag = authenticate_aad(key, &metadata_bytes)?;
+            let stored = StoredMetadata {
+                metadata,
+                auth_tag,
+            };
+            let stored_bytes =
+                borsh::to_vec(&stored).map_err(|_| AppError::Encrypt(ErrEncrypt::BorshError))?;
+            self.fs.write_file(&metadata_path, &stored_bytes)?;
         }
 
         {
@@ -66,11 +79,12 @@ impl<F: FileSystem> UserRepository for UserFileRepository<F> {
             return Err(AppError::User(ErrUser::UserNotFound));
         }
 
-        let mut metadata_bytes = self.fs.read_file(&metadata_path)?;
-        let metadata: UserMetadata = borsh::BorshDeserialize::try_from_slice(&metadata_bytes)
-            .map_err(|_| AppError::Encrypt(ErrEncrypt::BorshError))?;
-        info!("USR_RPO_LOAD: metadata_bytes: {:?}", metadata_bytes);
-        metadata_bytes.zeroize();
+        let mut stored_bytes = self.fs.read_file(&metadata_path)?;
+        let mut stored: StoredMetadata =
+            borsh::BorshDeserialize::try_from_slice(&stored_bytes)
+                .map_err(|_| AppError::Encrypt(ErrEncrypt::BorshError))?;
+        stored_bytes.zeroize();
+        let metadata = stored.metadata;
 
         if !self.fs.file_exists(&secure_path) {
             return Err(AppError::Encrypt(ErrEncrypt::InvalidData));
@@ -78,6 +92,12 @@ impl<F: FileSystem> UserRepository for UserFileRepository<F> {
         let mut encrypted = self.fs.read_file(&secure_path)?;
         let mut decrypted = decrypt_data(&encrypted, key)?;
         encrypted.zeroize();
+
+        let mut metadata_bytes =
+            borsh::to_vec(&metadata).map_err(|_| AppError::Encrypt(ErrEncrypt::BorshError))?;
+        verify_aad(key, &metadata_bytes, &stored.auth_tag)?;
+        metadata_bytes.zeroize();
+        stored.auth_tag.zeroize();
 
         let secure_data: UserSecureData = borsh::BorshDeserialize::try_from_slice(&decrypted)
             .map_err(|_| AppError::Encrypt(ErrEncrypt::DecryptionFailed))?;

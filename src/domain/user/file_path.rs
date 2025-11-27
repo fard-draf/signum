@@ -30,9 +30,7 @@ impl UserFilePath {
         if file_name.is_empty() {
             return Err(AppError::Path(ErrPath::EmptyFilename));
         }
-        if file_name.chars().any(|c| c.is_whitespace())
-            || file_name.chars().any(|c| FORBIDDEN.contains(&c))
-        {
+        if file_name.chars().any(|c| FORBIDDEN.contains(&c)) {
             return Err(AppError::Path(ErrPath::ForbiddenCharacters));
         }
 
@@ -40,12 +38,12 @@ impl UserFilePath {
     }
 
     pub fn from_path(path: String) -> Result<Self, AppError> {
-        const FORBIDDEN: &[char] = &['\0', '|', ';', '>', '<', '\\', ':', '*', '?', '"'];
+        const FORBIDDEN: &[char] = &['\0', '|', ';', '>', '<', '*', '?', '"'];
         let path = path.trim().to_string();
         if path.is_empty() {
             return Err(AppError::Path(ErrPath::EmptyPath));
         }
-        if path.chars().any(|c| c.is_whitespace()) || path.chars().any(|c| FORBIDDEN.contains(&c)) {
+        if path.chars().any(|c| FORBIDDEN.contains(&c)) {
             return Err(AppError::Path(ErrPath::ForbiddenCharacters));
         }
         Ok(UserFilePath { path })

@@ -4,18 +4,16 @@ mod tests {
     use ed25519_dalek::ed25519::signature::SignerMut;
     use log::info;
     use std::path::PathBuf;
-    use zeroize::Zeroize;
+    use tracing_subscriber;
 
     use crate::{
         application::{auth_service::AuthService, key_service::KeyService},
-        domain::{ports::config::AppConfig, user::file_path::UserFilePath},
-        error::AppError,
+        domain::ports::config::AppConfig,
         infra::{file_system::FileSystemAdapter, user_repo::UserFileRepository},
-        tracing::init_logging,
     };
 
     fn init() {
-        init_logging();
+        let _ = tracing_subscriber::fmt::try_init();
     }
 
     fn setup_test_env() -> (
@@ -142,6 +140,35 @@ mod tests {
     }
 
     #[test]
+    fn test_metadata_tampering_detected() {
+        init();
+        let (auth_service, temp_path) = setup_test_env();
+
+        let mut path = String::from("workflow_test_data.sgm");
+        let username = "tamperuser";
+        let mut password = String::from("Str0ng@P4ssw0rd1234");
+
+        auth_service
+            .register(username, &mut password, &mut path)
+            .expect("registration should work");
+
+        // Corrupt metadata file
+        let meta_path = temp_path
+            .join("Signum")
+            .join("users")
+            .join(username)
+            .join(format!("{}.sgm.meta", username));
+        let mut bytes =
+            std::fs::read(&meta_path).expect("metadata should exist after registration");
+        bytes[0] ^= 0xFF;
+        std::fs::write(&meta_path, &bytes).expect("tampered metadata write should work");
+
+        let mut login_pw = String::from("Str0ng@P4ssw0rd1234");
+        let result = auth_service.login(username, &mut login_pw);
+        assert!(result.is_err(), "tampered metadata must prevent login");
+    }
+
+    #[test]
     fn test_complete_workflow() {
         init();
 
@@ -155,10 +182,6 @@ mod tests {
 
         let mut path = String::from("workflow_test_data.sgm");
         info!("TEST: path: {:?}", path);
-
-        let (user, signing_key) = auth_service
-            .register(username, &mut password, &mut path)
-            .expect("User registration failed");
 
         let (user, mut signing_key) = auth_service
             .register(username, &mut password, &mut path)

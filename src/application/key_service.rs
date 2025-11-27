@@ -1,8 +1,10 @@
-use tracing::{error, info};
+use tracing::error;
 
 use crate::{
     core::{
-        crypto::sym::{decrypt_data, derive_key_from_password, encrypt_data},
+        crypto::sym::{
+            authenticate_aad, decrypt_data, derive_key_from_password, encrypt_data, verify_aad,
+        },
         keys::keypair::generate_keypair,
     },
     domain::{
@@ -15,10 +17,17 @@ use crate::{
 use base64::{Engine as _, engine::general_purpose};
 use ed25519_dalek::{SigningKey, VerifyingKey};
 use zeroize::Zeroize;
+use borsh;
 
 pub struct KeyService<F: FileSystem> {
     fs: F,
     config: AppConfig,
+}
+
+#[derive(borsh::BorshSerialize, borsh::BorshDeserialize)]
+struct StoredVerifyingKey {
+    encoded: String,
+    auth_tag: Vec<u8>,
 }
 
 impl<F: FileSystem> KeyService<F> {
@@ -30,7 +39,7 @@ impl<F: FileSystem> KeyService<F> {
         let (signing_key, verifying_key) = generate_keypair();
         self.save_signing_key(user, password, &signing_key)?;
         // password.zeroize();
-        self.save_verifying_key(user, &verifying_key)?;
+        self.save_verifying_key(user, password, &verifying_key)?;
 
         Ok(())
     }
@@ -41,24 +50,15 @@ impl<F: FileSystem> KeyService<F> {
         raw_pw: &mut str,
         key: &SigningKey,
     ) -> Result<(), AppError> {
-        info!("SK_SAVE: password: {}", raw_pw);
-
         let base_dir = self.get_keys_directory(user)?;
         let base_path = std::path::Path::new(&base_dir);
         let sk_path = base_path.join("signing_key.sk.enc");
         let sk_path_str = sk_path.to_string_lossy();
 
-        info!("SK_SAVE: raw_pw: {}", raw_pw);
-        info!("SK_SAVE: salt raw: {:?}", user.get_salt());
-
         let mut encryption_key = derive_key_from_password(raw_pw, user)?;
         raw_pw.zeroize();
         let mut key_bytes = key.to_bytes();
         let encrypted = encrypt_data(&key_bytes, &encryption_key)?;
-
-        info!("SK_SAVE: salt raw: {}", user.user_salt);
-        info!("SK_SAVE: salt from get_salt: {:?}", user.get_salt()?);
-        info!("SK_SAVE: encryption key: {:?}", encryption_key);
 
         self.fs.write_file(&sk_path_str, &encrypted)?;
 
@@ -68,14 +68,25 @@ impl<F: FileSystem> KeyService<F> {
         Ok(())
     }
 
-    pub fn save_verifying_key(&self, user: &User, key: &VerifyingKey) -> Result<(), AppError> {
+    pub fn save_verifying_key(
+        &self,
+        user: &User,
+        raw_pw: &mut str,
+        key: &VerifyingKey,
+    ) -> Result<(), AppError> {
         let base_dir = self.get_keys_directory(user)?;
         let base_path = std::path::Path::new(&base_dir);
         let vk_path = base_path.join("verifying_key.vk");
         let vk_path_str = vk_path.to_string_lossy();
 
         let encoded = general_purpose::STANDARD.encode(key.to_bytes());
-        self.fs.write_file(&vk_path_str, encoded.as_bytes())?;
+        let mut encryption_key = derive_key_from_password(raw_pw, user)?;
+        raw_pw.zeroize();
+        let auth_tag = authenticate_aad(&encryption_key, encoded.as_bytes())?;
+        let stored = StoredVerifyingKey { encoded, auth_tag };
+        let payload = borsh::to_vec(&stored).map_err(|_| AppError::Encrypt(ErrEncrypt::BorshError))?;
+        self.fs.write_file(&vk_path_str, &payload)?;
+        encryption_key.zeroize();
 
         Ok(())
     }
@@ -89,20 +100,13 @@ impl<F: FileSystem> KeyService<F> {
         if !self.fs.file_exists(&sk_path_str) {
             return Err(AppError::Dalek(ErrDalek::KeyNotFound));
         }
-        info!("SK_LOAD: raw_pw: {}", raw_pw);
-        info!("SK_LOAD: salt raw: {:?}", user.get_salt());
 
         let mut encryption_key = derive_key_from_password(raw_pw, user)?;
         raw_pw.zeroize();
-        info!("SK_LOAD: salt raw: {}", user.user_salt);
-        info!("SK_LOAD: salt from get_salt: {:?}", user.get_salt()?);
-        info!("SK_LOAD: encryption key: {:?}", encryption_key);
 
         let encrypted = self.fs.read_file(&sk_path_str)?;
-        info!("SK_LOAD: encrypted value {:?}", &encrypted);
 
         let mut decrypted = decrypt_data(&encrypted, &encryption_key)?;
-        info!("SK_LOAD: decrypted data length: {}", decrypted.len());
 
         if decrypted.len() == 32 {
             let mut raw = [0u8; 32];
@@ -128,7 +132,7 @@ impl<F: FileSystem> KeyService<F> {
         }
     }
 
-    pub fn load_verifying_key(&self, user: &User) -> Result<VerifyingKey, AppError> {
+    pub fn load_verifying_key(&self, user: &User, raw_pw: &mut str) -> Result<VerifyingKey, AppError> {
         let base_dir = self.get_keys_directory(user)?;
         let base_path = std::path::Path::new(&base_dir);
         let vk_path = base_path.join("verifying_key.vk");
@@ -138,25 +142,25 @@ impl<F: FileSystem> KeyService<F> {
             return Err(AppError::Dalek(ErrDalek::KeyNotFound));
         }
 
-        info!("VK_LOAD: verifying key file exists");
+        let mut encryption_key = derive_key_from_password(raw_pw, user)?;
+        raw_pw.zeroize();
 
         let file_content = self.fs.read_file(&vk_path_str)?;
-        let encoded = match String::from_utf8(file_content) {
-            Ok(s) => s.trim().to_string(),
-            Err(_) => return Err(AppError::Encrypt(ErrEncrypt::InvalidData)),
-        };
+        let stored: StoredVerifyingKey = borsh::BorshDeserialize::try_from_slice(&file_content)
+            .map_err(|_| AppError::Encrypt(ErrEncrypt::InvalidData))?;
 
-        info!("VK_LOAD: base64 encoded key read: {} bytes", encoded.len());
+        verify_aad(&encryption_key, stored.encoded.as_bytes(), &stored.auth_tag)?;
 
-        let bytes = match general_purpose::STANDARD.decode(encoded) {
+        let bytes = match general_purpose::STANDARD.decode(stored.encoded.trim()) {
             Ok(b) => b,
             Err(e) => {
                 error!("VK_LOAD: base64 decode error: {:?}", e);
+                encryption_key.zeroize();
                 return Err(AppError::Base64(ErrBase64::DecodeError(e)));
             }
         };
 
-        info!("VK_LOAD: decodes key bytes: {} bytes", bytes.len());
+        encryption_key.zeroize();
 
         if bytes.len() != 32 {
             error!(
