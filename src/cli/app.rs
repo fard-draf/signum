@@ -241,7 +241,10 @@ impl SignumCli {
             .crypt_service
             .encrypt_file(user, password, &file_path, output_path.as_deref())
         {
-            Ok(_) => {}
+            Ok(path) => println!(
+                "✅ Fichier chiffré: {}. Synchronisation terminée, vous pouvez retirer la clé.",
+                path.to_string_lossy()
+            ),
             Err(e) => println!("❌ Erreur lors du chiffrement: {:?}", e),
         }
 
@@ -286,7 +289,12 @@ impl SignumCli {
             &dir_path,
             output_path.as_deref(),
         ) {
-            Ok(path) => println!("✅ Répertoire chiffré dans: {}", path.to_string_lossy()),
+            Ok(path) => {
+                println!("✅ Répertoire chiffré dans: {}", path.to_string_lossy());
+                println!(
+                    "ℹ️  Synchronisation terminée. Vous pouvez retirer la clé en toute sécurité."
+                );
+            }
             Err(e) => println!("❌ Erreur lors du chiffrement du répertoire: {:?}", e),
         }
         Ok(())

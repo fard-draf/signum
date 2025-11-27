@@ -153,9 +153,12 @@ impl CryptService {
             fs::remove_dir_all(&input_root).map_err(|_| AppError::Path(ErrPath::WriteError))?;
             if let Some(dest) = final_destination {
                 fs::rename(&output_root, &dest).map_err(|_| AppError::Path(ErrPath::WriteError))?;
+                self.sync_dir(dest.parent());
                 output_root = dest;
             }
+            self.sync_dir(output_root.parent());
         }
+        self.sync_dir(Some(&output_root));
         Ok(output_root)
     }
 
@@ -221,9 +224,11 @@ impl CryptService {
             fs::remove_dir_all(&enc_root).map_err(|_| AppError::Path(ErrPath::WriteError))?;
             if let Some(dest) = final_destination {
                 fs::rename(&output_root, &dest).map_err(|_| AppError::Path(ErrPath::WriteError))?;
+                self.sync_dir(dest.parent());
                 output_root = dest;
             }
         }
+        self.sync_dir(Some(&output_root));
         Ok(output_root)
     }
 }
@@ -370,6 +375,15 @@ fn is_wipe_enabled() -> bool {
 }
 
 impl CryptService {
+    fn sync_dir(&self, dir: Option<&Path>) {
+        if let Some(d) = dir {
+            let _ = fs::File::open(d).and_then(|f| f.sync_all());
+            if let Some(parent) = d.parent() {
+                let _ = fs::File::open(parent).and_then(|f| f.sync_all());
+            }
+        }
+    }
+
     fn best_effort_wipe_file(&self, path: &Path) {
         if !self.wipe_enabled {
             return;

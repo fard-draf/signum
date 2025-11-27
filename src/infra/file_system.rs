@@ -1,6 +1,7 @@
 use crate::domain::ports::fs::FileSystem;
 use crate::error::{AppError, ErrPath};
-use std::fs;
+use std::fs::{self, OpenOptions};
+use std::io::Write;
 #[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
@@ -36,7 +37,21 @@ impl FileSystem for FileSystemAdapter {
             }
         }
 
-        fs::write(path, data).map_err(|_| AppError::Path(ErrPath::WriteError))?;
+        let mut file = OpenOptions::new()
+            .write(true)
+            .create(true)
+            .truncate(true)
+            .open(path)
+            .map_err(|_| AppError::Path(ErrPath::WriteError))?;
+
+        file.write_all(data)
+            .map_err(|_| AppError::Path(ErrPath::WriteError))?;
+        let _ = file.sync_all();
+
+        if let Some(parent) = Path::new(path).parent() {
+            let _ = fs::File::open(parent).and_then(|f| f.sync_all());
+        }
+
         #[cfg(unix)]
         {
             let perms = fs::Permissions::from_mode(0o600);

@@ -1,4 +1,4 @@
-use tracing::{debug, error};
+use tracing::debug;
 use zeroize::Zeroize;
 
 use crate::{
