@@ -42,13 +42,12 @@ mod tests {
         let _guard = lock_env();
         unsafe {
             env::remove_var("SIGNUM_DATA_DIR");
-            env::set_var("SIGNUM_PORTABLE", "1");
         }
 
         let config = AppConfig::new(None).expect("Failed to build config with portable flag");
 
         unsafe {
-            env::remove_var("SIGNUM_PORTABLE");
+            env::remove_var("SIGNUM_SHARED_DIR");
         }
 
         let exe_dir = env::current_exe().expect("Failed to get current exe");
@@ -60,5 +59,24 @@ mod tests {
         assert_eq!(config.base_directory, expected);
 
         let _ = fs::remove_dir_all(expected);
+    }
+
+    #[test]
+    fn uses_shared_dir_env_when_set() {
+        let _guard = lock_env();
+        let temp_dir = tempfile::tempdir().expect("tempdir");
+        unsafe {
+            env::remove_var("SIGNUM_DATA_DIR");
+            env::set_var("SIGNUM_SHARED_DIR", temp_dir.path());
+        }
+
+        let config = AppConfig::new(None).expect("Failed to build config with shared dir");
+
+        unsafe {
+            env::remove_var("SIGNUM_SHARED_DIR");
+        }
+
+        let expected = temp_dir.path().join("Signum");
+        assert_eq!(config.base_directory, expected);
     }
 }

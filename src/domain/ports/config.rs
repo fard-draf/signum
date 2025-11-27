@@ -42,16 +42,14 @@ impl AppConfig {
         if let Some(portable_dir) = env::var_os("SIGNUM_DATA_DIR") {
             return Ok(Some(PathBuf::from(portable_dir)));
         }
+        if let Some(shared_dir) = env::var_os("SIGNUM_SHARED_DIR") {
+            return Ok(Some(PathBuf::from(shared_dir)));
+        }
 
-        if let Some(flag) = env::var_os("SIGNUM_PORTABLE") {
-            if flag != "0" && flag != "false" {
-                let exe_dir =
-                    env::current_exe().map_err(|_| AppError::Path(ErrPath::DirectoryNotFound))?;
-                if let Some(parent) = exe_dir.parent() {
-                    return Ok(Some(parent.join("signum-data")));
-                }
-                return Err(AppError::Path(ErrPath::DirectoryNotFound));
-            }
+        let exe_dir = env::current_exe().map_err(|_| AppError::Path(ErrPath::DirectoryNotFound))?;
+        // Shared root = parent of the binary directory (e.g. Tools/ containing multiple builds)
+        if let Some(parent) = exe_dir.parent() {
+            return Ok(Some(parent.join("signum-data")));
         }
 
         Ok(None)

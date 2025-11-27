@@ -25,9 +25,9 @@ Signum is a command-line tool written in Rust to sign, verify, and encrypt files
 - Default encryption replaces the original file or directory in place; specify a custom output path if you need to keep the clear version. Best-effort wipe is enabled by default before deleting originals; opt out with `SIGNUM_WIPE=0`.
 
 ## Portable / USB usage
-- On first launch Signum asks for the operating mode: `OFFICE` (default OS data dirs) or `NOMADE` (portable). The choice is persisted in `signum.conf` next to the binary (override path with `SIGNUM_CONFIG_PATH`).
-- In `NOMADE`, Signum forces portable paths (envs `SIGNUM_PORTABLE=1` and `SIGNUM_DATA_DIR` next to the binary in `signum-data/Signum`).
-- For double-click/standalone launch from a USB: use `run_signum.sh` (Unix/macOS) or `Signum-portable.bat` (Windows). Place them next to the compiled binary; they honour the stored mode and start Signum without `./signum`.
+- On first launch Signum asks for the operating mode: `OFFICE` (default OS data dirs) or `NOMADE` (portable). The choice is persisted in `signum.conf` stored one level above the binary (override path with `SIGNUM_CONFIG_PATH`).
+- In `NOMADE`, Signum stores data under `signum-data/Signum` placed one level above the binary directory (handy when you keep multiple builds like `signum-ubuntu-latest`, `signum-windows-latest` under the same `Tools/` folder). Override with `SIGNUM_DATA_DIR` or `SIGNUM_SHARED_DIR` if you want a custom shared location.
+- For double-click/standalone launch from a USB: use `run_signum.sh` (Unix/macOS) or `Signum-portable.bat` (Windows). Place them next to the compiled binary; they honour the stored mode and shared data path without needing `./signum`.
 - Default behaviour remains unchanged (XDG/AppData/Home) when no portable env var is provided.
 
 ## Operational recommendations

@@ -6,7 +6,7 @@ Ce guide explique, pas à pas, comment chiffrer et déchiffrer vos fichiers ou d
 - Assurez-vous d’avoir Rust/Cargo installé.
 - Dans le dossier du projet : `cargo run --release`.
 - Suivez le menu interactif qui s’affiche dans le terminal.
-- **Mode portable (clé USB)** : au premier lancement, choisissez `OFFICE` (chemins système classiques) ou `NOMADE` (portable). Le choix est sauvegardé dans `signum.conf` à côté du binaire (surchargable via `SIGNUM_CONFIG_PATH`). En `NOMADE`, Signum force `SIGNUM_PORTABLE=1` et stocke dans `signum-data/Signum` à côté du binaire. Vous pouvez lancer directement via `run_signum.sh` (Unix/macOS) ou `Signum-portable.bat` (Windows) placés à côté du binaire, sans `./signum`. Sans ces variables, le comportement par défaut (XDG/AppData/Home) est conservé.
+- **Mode portable (clé USB)** : au premier lancement, choisissez `OFFICE` (chemins système classiques) ou `NOMADE` (portable). Le choix est sauvegardé dans `signum.conf` un niveau au-dessus du binaire (surchargable via `SIGNUM_CONFIG_PATH`). En `NOMADE`, Signum stocke dans `signum-data/Signum` placé un niveau au-dessus du binaire (pratique si vous avez plusieurs builds `signum-ubuntu-latest`, `signum-windows-latest` dans un même dossier `Tools/`). Surcharges possibles : `SIGNUM_DATA_DIR` ou `SIGNUM_SHARED_DIR` pour imposer un emplacement partagé. Vous pouvez lancer directement via `run_signum.sh` (Unix/macOS) ou `Signum-portable.bat` (Windows) placés à côté du binaire, sans `./signum`. Sans ces variables, le comportement par défaut (XDG/AppData/Home) est conservé.
 
 ## 2. Créer un compte (Inscription)
 1) Choisissez « Inscription ».
@@ -55,7 +55,7 @@ This guide explains, step by step, how to encrypt and decrypt your files or fold
 - Ensure Rust/Cargo is installed.
 - In the project folder: `cargo run --release`.
 - Follow the interactive menu in the terminal.
-- **Portable mode (USB)**: on first launch choose `OFFICE` (standard OS paths) or `NOMADE` (portable). The choice is stored in `signum.conf` next to the binary (override via `SIGNUM_CONFIG_PATH`). In `NOMADE`, Signum forces `SIGNUM_PORTABLE=1` and stores under `signum-data/Signum` next to the binary. You can launch via `run_signum.sh` (Unix/macOS) or `Signum-portable.bat` (Windows) placed next to the binary; no `./signum` needed. Without these variables, default XDG/AppData/Home paths are used.
+- **Portable mode (USB)**: on first launch choose `OFFICE` (standard OS paths) or `NOMADE` (portable). The choice is stored in `signum.conf` one level above the binary (override via `SIGNUM_CONFIG_PATH`). In `NOMADE`, Signum stores data under `signum-data/Signum` one level above the binary (useful when multiple builds live under a shared `Tools/` folder). Override with `SIGNUM_DATA_DIR` or `SIGNUM_SHARED_DIR` to force a shared location. You can launch via `run_signum.sh` (Unix/macOS) or `Signum-portable.bat` (Windows) placed next to the binary; no `./signum` needed. Without these variables, default XDG/AppData/Home paths are used.
 
 ## 2. Create an account (Registration)
 1) Choose “Inscription”.

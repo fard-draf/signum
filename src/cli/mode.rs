@@ -99,6 +99,9 @@ fn config_path() -> Result<PathBuf, AppError> {
     }
 
     let exe_dir = current_exe_dir()?;
+    if let Some(parent) = exe_dir.parent() {
+        return Ok(parent.join("signum.conf"));
+    }
     Ok(exe_dir.join("signum.conf"))
 }
 
