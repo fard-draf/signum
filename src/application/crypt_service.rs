@@ -3,6 +3,7 @@ use std::env;
 use std::fs::{self, OpenOptions};
 use std::io::{ErrorKind, Write};
 use std::path::{Component, Path, PathBuf};
+use std::time::Instant;
 use zeroize::Zeroize;
 
 use crate::{
@@ -32,6 +33,9 @@ impl CryptService {
         input_path: &str,
         output_path: Option<&str>,
     ) -> Result<PathBuf, AppError> {
+        if input_path.ends_with(".enc") {
+            return Err(AppError::Encrypt(ErrEncrypt::AlreadyEncrypted));
+        }
         let plaintext = self.fs.read_file(input_path)?;
         let mut temp_pw = raw_pw.to_string();
         let mut key = derive_key_from_password(temp_pw.as_mut_str(), user)?;
@@ -101,6 +105,10 @@ impl CryptService {
         if !input_root.is_dir() {
             return Err(AppError::Path(ErrPath::DirectoryNotFound));
         }
+        let stats = compute_dir_stats(&input_root, false)?;
+        if stats.enc_count > 0 && stats.non_enc_count == 0 {
+            return Err(AppError::Encrypt(ErrEncrypt::AlreadyEncrypted));
+        }
         let in_place = output_dir.is_none();
         let (mut output_root, final_destination): (PathBuf, Option<PathBuf>) =
             if let Some(custom) = output_dir {
@@ -118,6 +126,10 @@ impl CryptService {
         let mut temp_pw = raw_pw.to_string();
         let mut key = derive_key_from_password(temp_pw.as_mut_str(), user)?;
         temp_pw.zeroize();
+
+        let total_bytes = stats.total_bytes.max(1);
+        let start = Instant::now();
+        let mut processed: u64 = 0;
 
         for entry in walk_files(&input_root)? {
             if entry
@@ -153,6 +165,8 @@ impl CryptService {
                 self.best_effort_wipe_file(&entry);
                 let _ = fs::remove_file(&entry);
             }
+            processed = processed.saturating_add(data.len() as u64);
+            self.print_progress(processed, total_bytes, start.elapsed(), "Chiffrement");
         }
 
         key.zeroize();
@@ -178,6 +192,10 @@ impl CryptService {
         if !enc_root.is_dir() {
             return Err(AppError::Path(ErrPath::DirectoryNotFound));
         }
+        let stats = compute_dir_stats(&enc_root, true)?;
+        if stats.enc_count == 0 {
+            return Err(AppError::Encrypt(ErrEncrypt::InvalidData));
+        }
         let in_place = output_dir.is_none();
         let (mut output_root, final_destination): (PathBuf, Option<PathBuf>) =
             if let Some(custom) = output_dir {
@@ -195,6 +213,10 @@ impl CryptService {
         let mut temp_pw = raw_pw.to_string();
         let mut key = derive_key_from_password(temp_pw.as_mut_str(), user)?;
         temp_pw.zeroize();
+
+        let total_bytes = stats.total_bytes.max(1);
+        let start = Instant::now();
+        let mut processed: u64 = 0;
 
         for entry in walk_files(&enc_root)? {
             let name = entry.file_name().and_then(|s| s.to_str()).unwrap_or("");
@@ -221,6 +243,8 @@ impl CryptService {
                 self.best_effort_wipe_file(&entry);
                 let _ = fs::remove_file(&entry);
             }
+            processed = processed.saturating_add(data.len() as u64);
+            self.print_progress(processed, total_bytes, start.elapsed(), "Déchiffrement");
         }
 
         key.zeroize();
@@ -363,6 +387,36 @@ fn portable_rel_label(path: &Path) -> Result<String, AppError> {
     Ok(comps.join("/"))
 }
 
+#[derive(Default)]
+struct DirStats {
+    total_bytes: u64,
+    enc_count: usize,
+    non_enc_count: usize,
+}
+
+fn compute_dir_stats(root: &Path, decrypt: bool) -> Result<DirStats, AppError> {
+    let mut stats = DirStats::default();
+    for entry in walk_files(root)? {
+        let name = entry.file_name().and_then(|s| s.to_str()).unwrap_or("");
+        let is_enc = name.ends_with(".enc");
+        let meta = fs::metadata(&entry).map_err(|_| AppError::Path(ErrPath::ReadError))?;
+        if decrypt {
+            if is_enc {
+                stats.enc_count += 1;
+                stats.total_bytes = stats.total_bytes.saturating_add(meta.len());
+            } else {
+                stats.non_enc_count += 1;
+            }
+        } else if is_enc {
+            stats.enc_count += 1;
+        } else {
+            stats.non_enc_count += 1;
+            stats.total_bytes = stats.total_bytes.saturating_add(meta.len());
+        }
+    }
+    Ok(stats)
+}
+
 fn is_wipe_enabled() -> bool {
     match env::var("SIGNUM_WIPE") {
         Ok(v)
@@ -385,6 +439,31 @@ impl CryptService {
                 let _ = fs::File::open(parent).and_then(|f| f.sync_all());
             }
         }
+    }
+
+    fn print_progress(
+        &self,
+        processed: u64,
+        total: u64,
+        elapsed: std::time::Duration,
+        label: &str,
+    ) {
+        if total == 0 {
+            return;
+        }
+        let percent = (processed as f64 / total as f64 * 100.0).min(100.0);
+        let secs = elapsed.as_secs_f64().max(0.001);
+        let eta = if processed > 0 {
+            let rate = processed as f64 / secs;
+            let remaining = (total.saturating_sub(processed)) as f64 / rate;
+            remaining
+        } else {
+            0.0
+        };
+        println!(
+            "[{}] Progression: {:>5.1}% | Temps restant estimé: ~{:.1}s",
+            label, percent, eta
+        );
     }
 
     fn best_effort_wipe_file(&self, path: &Path) {

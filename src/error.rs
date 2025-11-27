@@ -167,6 +167,9 @@ pub enum ErrEncrypt {
 
     #[error("Invalid data")]
     InvalidData,
+
+    #[error("Data already encrypted")]
+    AlreadyEncrypted,
 }
 
 #[derive(Debug, Error)]
