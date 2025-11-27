@@ -1,9 +1,9 @@
 #[cfg(test)]
 mod tests {
-    use std::fs;
     use argon2::password_hash::SaltString;
     use rand::RngCore;
     use rand_core::OsRng;
+    use std::fs;
 
     use crate::{
         application::crypt_service::CryptService,
@@ -54,8 +54,12 @@ mod tests {
         assert_eq!(content, "super secret");
 
         // Déplacer ou renommer le fichier chiffré doit casser le déchiffrement (AAD lié au chemin)
-        let moved_res = service.decrypt_file(&user, &mut password, &moved_path.to_string_lossy(), None);
-        assert!(moved_res.is_err(), "decryption after move must fail (path binding)");
+        let moved_res =
+            service.decrypt_file(&user, &mut password, &moved_path.to_string_lossy(), None);
+        assert!(
+            moved_res.is_err(),
+            "decryption after move must fail (path binding)"
+        );
     }
 
     #[test]

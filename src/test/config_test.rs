@@ -1,8 +1,7 @@
 #[cfg(test)]
 mod tests {
     use std::{
-        env,
-        fs,
+        env, fs,
         path::PathBuf,
         sync::{Mutex, OnceLock},
     };
@@ -12,7 +11,10 @@ mod tests {
     static ENV_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
 
     fn lock_env<'a>() -> std::sync::MutexGuard<'a, ()> {
-        ENV_LOCK.get_or_init(|| Mutex::new(())).lock().expect("lock poisoned")
+        ENV_LOCK
+            .get_or_init(|| Mutex::new(()))
+            .lock()
+            .expect("lock poisoned")
     }
 
     #[test]

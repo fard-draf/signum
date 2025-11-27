@@ -1,6 +1,8 @@
 // src/cli/app.rs
 use crate::{
-    application::{auth_service::AuthService, crypt_service::CryptService, key_service::KeyService},
+    application::{
+        auth_service::AuthService, crypt_service::CryptService, key_service::KeyService,
+    },
     domain::{ports::config::AppConfig, user::entities::User},
     error::AppError,
     infra::{file_system::FileSystemAdapter, user_repo::UserFileRepository},
@@ -25,7 +27,8 @@ impl SignumCli {
         let fs_adapter = FileSystemAdapter::new();
         let user_repository = UserFileRepository::new(fs_adapter.clone(), config.clone());
         let key_service = KeyService::new(fs_adapter.clone(), config.clone());
-        let auth_service = AuthService::new(user_repository, fs_adapter.clone(), config, key_service);
+        let auth_service =
+            AuthService::new(user_repository, fs_adapter.clone(), config, key_service);
         let crypt_service = CryptService::new(fs_adapter);
 
         Ok(Self {
@@ -277,10 +280,12 @@ impl SignumCli {
         let dir_path = crate::cli::ui::file_prompt("Chemin du répertoire à chiffrer:")?;
         let output_path = crate::cli::ui::output_file_prompt()?;
 
-        match self
-            .crypt_service
-            .encrypt_directory(user, password, &dir_path, output_path.as_deref())
-        {
+        match self.crypt_service.encrypt_directory(
+            user,
+            password,
+            &dir_path,
+            output_path.as_deref(),
+        ) {
             Ok(path) => println!("✅ Répertoire chiffré dans: {}", path.to_string_lossy()),
             Err(e) => println!("❌ Erreur lors du chiffrement du répertoire: {:?}", e),
         }
@@ -292,10 +297,12 @@ impl SignumCli {
         let dir_path = crate::cli::ui::file_prompt("Chemin du répertoire chiffré:")?;
         let output_path = crate::cli::ui::output_file_prompt()?;
 
-        match self
-            .crypt_service
-            .decrypt_directory(user, password, &dir_path, output_path.as_deref())
-        {
+        match self.crypt_service.decrypt_directory(
+            user,
+            password,
+            &dir_path,
+            output_path.as_deref(),
+        ) {
             Ok(path) => println!("✅ Répertoire déchiffré dans: {}", path.to_string_lossy()),
             Err(e) => println!("❌ Erreur lors du déchiffrement du répertoire: {:?}", e),
         }

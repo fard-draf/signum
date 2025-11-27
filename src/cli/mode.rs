@@ -73,8 +73,7 @@ fn prompt_mode() -> Result<RunMode, AppError> {
 
 fn persist_mode(path: &PathBuf, mode: RunMode) -> Result<(), AppError> {
     if let Some(parent) = path.parent() {
-        fs::create_dir_all(parent)
-            .map_err(|_| AppError::Path(ErrPath::DirectoryCreationFailed))?;
+        fs::create_dir_all(parent).map_err(|_| AppError::Path(ErrPath::DirectoryCreationFailed))?;
     }
     let content = format!("mode={}\n", mode.as_str());
     fs::write(path, content).map_err(|_| AppError::Path(ErrPath::WriteError))

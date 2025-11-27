@@ -100,9 +100,8 @@ impl<R: UserRepository, F: FileSystem> AuthService<R, F> {
             self.config.get_user_data_path(&name).to_string_lossy()
         );
         let mut metadata_bytes = self.fs.read_file(&base_path)?;
-        let stored: StoredMetadata =
-            borsh::BorshDeserialize::try_from_slice(&metadata_bytes)
-                .map_err(|_| AppError::Encrypt(ErrEncrypt::BorshError))?;
+        let stored: StoredMetadata = borsh::BorshDeserialize::try_from_slice(&metadata_bytes)
+            .map_err(|_| AppError::Encrypt(ErrEncrypt::BorshError))?;
         metadata_bytes.zeroize();
         let metadata = stored.metadata;
         let dummy_password = UserPassword::from_raw("Str0ng@P4ssw0rd12345")?;
@@ -149,7 +148,11 @@ impl<R: UserRepository, F: FileSystem> AuthService<R, F> {
         Ok((user, signing_key))
     }
 
-    pub fn load_verifying_key(&self, user: &User, raw_pw: &mut str) -> Result<VerifyingKey, AppError> {
+    pub fn load_verifying_key(
+        &self,
+        user: &User,
+        raw_pw: &mut str,
+    ) -> Result<VerifyingKey, AppError> {
         self.key_service.load_verifying_key(user, raw_pw)
     }
 }

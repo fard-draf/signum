@@ -5,10 +5,7 @@ use crate::{
     domain::user::entities::User,
     error::{AppError, ErrArgon2, ErrEncrypt},
 };
-use argon2::{
-    Algorithm, Argon2, ParamsBuilder, Version,
-    password_hash::PasswordHasher,
-};
+use argon2::{Algorithm, Argon2, ParamsBuilder, Version, password_hash::PasswordHasher};
 use chacha20poly1305::{
     AeadCore, XChaCha20Poly1305, XNonce,
     aead::{Aead, KeyInit, OsRng, Payload},
@@ -40,11 +37,12 @@ pub fn decrypt_data(encrypted_data: &[u8], key: &[u8; 32]) -> Result<Vec<u8>, Ap
     let cipher = XChaCha20Poly1305::new(key.into());
 
     match cipher.decrypt(nonce, ciphertxt) {
-        Ok(plaintext) => {
-            Ok(plaintext)
-        }
+        Ok(plaintext) => Ok(plaintext),
         Err(e) => {
-            debug!("DECRPT_DATA: decryption failed (likely integrity/AAD mismatch): {:?}", e);
+            debug!(
+                "DECRPT_DATA: decryption failed (likely integrity/AAD mismatch): {:?}",
+                e
+            );
             Err(AppError::Encrypt(ErrEncrypt::DecryptionFailed))
         }
     }
@@ -63,7 +61,13 @@ pub fn encrypt_with_aad(plaintext: &[u8], key: &[u8; 32], aad: &[u8]) -> Result<
     versioned_aad.extend_from_slice(aad);
 
     let ciphertext = cipher
-        .encrypt(&nonce, Payload { msg: plaintext, aad: &versioned_aad })
+        .encrypt(
+            &nonce,
+            Payload {
+                msg: plaintext,
+                aad: &versioned_aad,
+            },
+        )
         .map_err(|_| AppError::Encrypt(ErrEncrypt::EncryptionFailed))?;
 
     let mut out = Vec::with_capacity(1 + 2 + aad.len() + nonce.len() + ciphertext.len());
@@ -107,7 +111,13 @@ pub fn decrypt_with_aad(
     versioned_aad.extend_from_slice(aad);
 
     cipher
-        .decrypt(nonce, Payload { msg: ciphertxt, aad: &versioned_aad })
+        .decrypt(
+            nonce,
+            Payload {
+                msg: ciphertxt,
+                aad: &versioned_aad,
+            },
+        )
         .map_err(|_| AppError::Encrypt(ErrEncrypt::DecryptionFailed))
 }
 

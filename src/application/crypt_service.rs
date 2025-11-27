@@ -1,5 +1,7 @@
+use rand::RngCore;
 use std::env;
-use std::fs;
+use std::fs::{self, OpenOptions};
+use std::io::Write;
 use std::path::{Path, PathBuf};
 use zeroize::Zeroize;
 
@@ -12,11 +14,15 @@ use crate::{
 
 pub struct CryptService {
     fs: FileSystemAdapter,
+    wipe_enabled: bool,
 }
 
 impl CryptService {
     pub fn new(fs: FileSystemAdapter) -> Self {
-        Self { fs }
+        Self {
+            fs,
+            wipe_enabled: is_wipe_enabled(),
+        }
     }
 
     pub fn encrypt_file(
@@ -45,6 +51,7 @@ impl CryptService {
         }
         self.fs.write_file(&output.to_string_lossy(), &sealed)?;
         if replace_original && output != PathBuf::from(input_path) {
+            self.best_effort_wipe_file(Path::new(input_path));
             let _ = fs::remove_file(input_path);
         }
         Ok(output)
@@ -77,6 +84,7 @@ impl CryptService {
         }
         self.fs.write_file(&output.to_string_lossy(), &plaintext)?;
         if replace_original && output != PathBuf::from(encrypted_path) {
+            self.best_effort_wipe_file(Path::new(encrypted_path));
             let _ = fs::remove_file(encrypted_path);
         }
         Ok(output)
@@ -97,16 +105,15 @@ impl CryptService {
         let (mut output_root, final_destination) = if let Some(custom) = output_dir {
             let path = PathBuf::from(custom);
             if path.exists() {
-                fs::remove_dir_all(&path)
-                    .map_err(|_| AppError::Path(ErrPath::WriteError))?;
+                self.best_effort_wipe_dir(&path);
+                fs::remove_dir_all(&path).map_err(|_| AppError::Path(ErrPath::WriteError))?;
             }
             self.fs.create_directory(&path.to_string_lossy())?;
             (path, None)
         } else {
             let temp = default_enc_temp_dir(&input_root)?;
             if temp.exists() {
-                fs::remove_dir_all(&temp)
-                    .map_err(|_| AppError::Path(ErrPath::WriteError))?;
+                fs::remove_dir_all(&temp).map_err(|_| AppError::Path(ErrPath::WriteError))?;
             }
             self.fs.create_directory(&temp.to_string_lossy())?;
             (temp.clone(), Some(input_root.clone()))
@@ -135,11 +142,10 @@ impl CryptService {
 
         key.zeroize();
         if replace_original {
-            fs::remove_dir_all(&input_root)
-                .map_err(|_| AppError::Path(ErrPath::WriteError))?;
+            self.best_effort_wipe_dir(&input_root);
+            fs::remove_dir_all(&input_root).map_err(|_| AppError::Path(ErrPath::WriteError))?;
             if let Some(dest) = final_destination {
-                fs::rename(&output_root, &dest)
-                    .map_err(|_| AppError::Path(ErrPath::WriteError))?;
+                fs::rename(&output_root, &dest).map_err(|_| AppError::Path(ErrPath::WriteError))?;
                 output_root = dest;
             }
         }
@@ -161,16 +167,15 @@ impl CryptService {
         let (mut output_root, final_destination) = if let Some(custom) = output_dir {
             let path = PathBuf::from(custom);
             if path.exists() {
-                fs::remove_dir_all(&path)
-                    .map_err(|_| AppError::Path(ErrPath::WriteError))?;
+                self.best_effort_wipe_dir(&path);
+                fs::remove_dir_all(&path).map_err(|_| AppError::Path(ErrPath::WriteError))?;
             }
             self.fs.create_directory(&path.to_string_lossy())?;
             (path, None)
         } else {
             let temp = default_dec_temp_dir(&enc_root)?;
             if temp.exists() {
-                fs::remove_dir_all(&temp)
-                    .map_err(|_| AppError::Path(ErrPath::WriteError))?;
+                fs::remove_dir_all(&temp).map_err(|_| AppError::Path(ErrPath::WriteError))?;
             }
             self.fs.create_directory(&temp.to_string_lossy())?;
             (temp.clone(), Some(resolve_dec_destination(&enc_root)?))
@@ -205,11 +210,10 @@ impl CryptService {
 
         key.zeroize();
         if replace_original {
-            fs::remove_dir_all(&enc_root)
-                .map_err(|_| AppError::Path(ErrPath::WriteError))?;
+            self.best_effort_wipe_dir(&enc_root);
+            fs::remove_dir_all(&enc_root).map_err(|_| AppError::Path(ErrPath::WriteError))?;
             if let Some(dest) = final_destination {
-                fs::rename(&output_root, &dest)
-                    .map_err(|_| AppError::Path(ErrPath::WriteError))?;
+                fs::rename(&output_root, &dest).map_err(|_| AppError::Path(ErrPath::WriteError))?;
                 output_root = dest;
             }
         }
@@ -317,4 +321,61 @@ fn resolve_dec_destination(enc_root: &Path) -> Result<PathBuf, AppError> {
         .parent()
         .map(|p| p.join(clean_name))
         .unwrap_or_else(|| PathBuf::from(clean_name)))
+}
+
+fn is_wipe_enabled() -> bool {
+    match env::var("SIGNUM_WIPE") {
+        Ok(v)
+            if matches!(
+                v.as_str(),
+                "0" | "false" | "FALSE" | "off" | "OFF" | "no" | "NO"
+            ) =>
+        {
+            false
+        }
+        _ => true, // enabled by default; explicit opt-out only
+    }
+}
+
+impl CryptService {
+    fn best_effort_wipe_file(&self, path: &Path) {
+        if !self.wipe_enabled {
+            return;
+        }
+        if let Ok(meta) = fs::metadata(path) {
+            if meta.is_file() {
+                let len = meta.len();
+                if let Ok(mut file) = OpenOptions::new().write(true).open(path) {
+                    let mut rng = rand::thread_rng();
+                    let mut buf = [0u8; 8192];
+                    let mut remaining = len;
+                    while remaining > 0 {
+                        let chunk = remaining.min(buf.len() as u64) as usize;
+                        rng.fill_bytes(&mut buf[..chunk]);
+                        if file.write_all(&buf[..chunk]).is_err() {
+                            break;
+                        }
+                        remaining -= chunk as u64;
+                    }
+                    let _ = file.sync_all();
+                }
+            }
+        }
+    }
+
+    fn best_effort_wipe_dir(&self, path: &Path) {
+        if !self.wipe_enabled {
+            return;
+        }
+        if let Ok(entries) = fs::read_dir(path) {
+            for entry in entries.flatten() {
+                let p = entry.path();
+                if p.is_dir() {
+                    self.best_effort_wipe_dir(&p);
+                } else {
+                    self.best_effort_wipe_file(&p);
+                }
+            }
+        }
+    }
 }

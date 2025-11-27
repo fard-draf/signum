@@ -22,7 +22,7 @@ Ce guide explique, pas à pas, comment chiffrer et déchiffrer vos fichiers ou d
 ## 4. Chiffrer un fichier
 1) Choisissez « Chiffrer un fichier ».
 2) Entrez le chemin du fichier (ex. `/home/user/document.pdf`).
-3) Par défaut, le fichier chiffré remplace l’original (in-place). Spécifiez un chemin de sortie personnalisé si vous souhaitez conserver l’original.
+3) Par défaut, le fichier chiffré remplace l’original (in-place). Spécifiez un chemin de sortie personnalisé si vous souhaitez conserver l’original. Un effacement best-effort est tenté avant suppression (désactivable via `SIGNUM_WIPE=0`).
 4) Le chiffrement est lié au chemin du fichier chiffré : si vous déplacez ou renommez le fichier chiffré, le déchiffrement échouera tant que vous ne le remettez pas au chemin d’origine.
 
 ## 5. Déchiffrer un fichier
@@ -32,7 +32,7 @@ Ce guide explique, pas à pas, comment chiffrer et déchiffrer vos fichiers ou d
 4) Le déchiffrement échoue si le mot de passe est incorrect ou si le fichier a été altéré.
 
 ## 6. Chiffrer/Déchiffrer un répertoire
-1) « Chiffrer un répertoire » : entrez le chemin d’un dossier. Par défaut, le dossier est remplacé par sa version chiffrée (les fichiers deviennent `*.enc` dans le même dossier). Fournissez un chemin de sortie pour conserver l’original.
+1) « Chiffrer un répertoire » : entrez le chemin d’un dossier. Par défaut, le dossier est remplacé par sa version chiffrée (les fichiers deviennent `*.enc` dans le même dossier). Fournissez un chemin de sortie pour conserver l’original. Un effacement best-effort est tenté avant suppression (désactivable via `SIGNUM_WIPE=0`).
 2) « Déchiffrer un répertoire » : pointez sur le dossier chiffré. Par défaut, il est remplacé par sa version déchiffrée ; vous pouvez donner un chemin de sortie pour éviter d’écraser la version chiffrée.
 
 ## 7. Signer / Vérifier
@@ -71,7 +71,7 @@ This guide explains, step by step, how to encrypt and decrypt your files or fold
 ## 4. Encrypt a file
 1) Choose “Encrypt a file”.
 2) Enter the file path (e.g. `/home/user/document.pdf`).
-3) By default the encrypted file replaces the original (in-place). Provide a custom output path if you want to keep the original.
+3) By default the encrypted file replaces the original (in-place). Provide a custom output path if you want to keep the original. A best-effort wipe is attempted before deleting originals (disable with `SIGNUM_WIPE=0`).
 4) Encryption binds to the ciphertext path: if you move or rename the encrypted file, decryption will fail until you put it back at its original path.
 
 ## 5. Decrypt a file
@@ -81,7 +81,7 @@ This guide explains, step by step, how to encrypt and decrypt your files or fold
 4) Decryption fails if the password is wrong or if the file was tampered with.
 
 ## 6. Encrypt/Decrypt a directory
-1) “Encrypt a directory”: point to a folder. By default the folder is replaced by its encrypted version (files become `*.enc` in the same folder). Provide a custom output path if you need to keep the original.
+1) “Encrypt a directory”: point to a folder. By default the folder is replaced by its encrypted version (files become `*.enc` in the same folder). Provide a custom output path if you need to keep the original. A best-effort wipe is attempted before deletion (disable with `SIGNUM_WIPE=0`).
 2) “Decrypt a directory”: point to the encrypted folder. By default it is replaced by the decrypted version; provide a custom output path to avoid overwriting the encrypted folder.
 
 ## 7. Sign / Verify

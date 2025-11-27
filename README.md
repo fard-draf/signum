@@ -22,7 +22,7 @@ Signum is a command-line tool written in Rust to sign, verify, and encrypt files
 
 ## CLI quickstart
 - `cargo run --release` then use the interactive menu: register → login → sign/verify/encrypt/decrypt. Directory encryption is supported (recursively) with per-file AEAD and AAD = relative path.
-- Default encryption replaces the original file or directory in place; specify a custom output path if you need to keep the clear version.
+- Default encryption replaces the original file or directory in place; specify a custom output path if you need to keep the clear version. Best-effort wipe is enabled by default before deleting originals; opt out with `SIGNUM_WIPE=0`.
 
 ## Portable / USB usage
 - On first launch Signum asks for the operating mode: `OFFICE` (default OS data dirs) or `NOMADE` (portable). The choice is persisted in `signum.conf` next to the binary (override path with `SIGNUM_CONFIG_PATH`).

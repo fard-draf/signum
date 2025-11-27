@@ -1,18 +1,20 @@
 #[cfg(test)]
 mod tests {
     use std::{
-        env,
-        fs,
+        env, fs,
         path::PathBuf,
         sync::{Mutex, OnceLock},
     };
 
-    use crate::cli::mode::{apply_mode_environment, resolve_mode, RunMode};
+    use crate::cli::mode::{RunMode, apply_mode_environment, resolve_mode};
 
     static ENV_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
 
     fn lock_env<'a>() -> std::sync::MutexGuard<'a, ()> {
-        ENV_LOCK.get_or_init(|| Mutex::new(())).lock().expect("lock poisoned")
+        ENV_LOCK
+            .get_or_init(|| Mutex::new(()))
+            .lock()
+            .expect("lock poisoned")
     }
 
     fn temp_config_path(dir: &tempfile::TempDir) -> PathBuf {

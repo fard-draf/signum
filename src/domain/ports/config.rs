@@ -45,8 +45,8 @@ impl AppConfig {
 
         if let Some(flag) = env::var_os("SIGNUM_PORTABLE") {
             if flag != "0" && flag != "false" {
-                let exe_dir = env::current_exe()
-                    .map_err(|_| AppError::Path(ErrPath::DirectoryNotFound))?;
+                let exe_dir =
+                    env::current_exe().map_err(|_| AppError::Path(ErrPath::DirectoryNotFound))?;
                 if let Some(parent) = exe_dir.parent() {
                     return Ok(Some(parent.join("signum-data")));
                 }

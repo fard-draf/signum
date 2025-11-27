@@ -42,10 +42,7 @@ impl<F: FileSystem> UserRepository for UserFileRepository<F> {
             let metadata_bytes =
                 borsh::to_vec(&metadata).map_err(|_| AppError::Encrypt(ErrEncrypt::BorshError))?;
             let auth_tag = authenticate_aad(key, &metadata_bytes)?;
-            let stored = StoredMetadata {
-                metadata,
-                auth_tag,
-            };
+            let stored = StoredMetadata { metadata, auth_tag };
             let stored_bytes =
                 borsh::to_vec(&stored).map_err(|_| AppError::Encrypt(ErrEncrypt::BorshError))?;
             self.fs.write_file(&metadata_path, &stored_bytes)?;
@@ -80,9 +77,8 @@ impl<F: FileSystem> UserRepository for UserFileRepository<F> {
         }
 
         let mut stored_bytes = self.fs.read_file(&metadata_path)?;
-        let mut stored: StoredMetadata =
-            borsh::BorshDeserialize::try_from_slice(&stored_bytes)
-                .map_err(|_| AppError::Encrypt(ErrEncrypt::BorshError))?;
+        let mut stored: StoredMetadata = borsh::BorshDeserialize::try_from_slice(&stored_bytes)
+            .map_err(|_| AppError::Encrypt(ErrEncrypt::BorshError))?;
         stored_bytes.zeroize();
         let metadata = stored.metadata;
 

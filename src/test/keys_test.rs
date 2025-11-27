@@ -49,19 +49,19 @@ mod tests {
     }
 
     // Fonction pour sauvegarder une clé de signature chiffrée
-fn save_signing_key_encrypted(
-    key: &SigningKey,
-    path: &str,
-    user: &User,
-    password: &str,
-) -> Result<(), AppError> {
-    let mut pw = password.to_string();
-    let mut encryption_key = derive_key_from_password(&mut pw, user)?;
+    fn save_signing_key_encrypted(
+        key: &SigningKey,
+        path: &str,
+        user: &User,
+        password: &str,
+    ) -> Result<(), AppError> {
+        let mut pw = password.to_string();
+        let mut encryption_key = derive_key_from_password(&mut pw, user)?;
 
-    // Chiffrer et sauvegarder la clé
-    let mut key_bytes = key.to_bytes();
-    let encrypted = encrypt_data(&key_bytes, &encryption_key)?;
-    fs::write(path, &encrypted).map_err(|e| AppError::IO(crate::error::ErrIO::IoError(e)))?;
+        // Chiffrer et sauvegarder la clé
+        let mut key_bytes = key.to_bytes();
+        let encrypted = encrypt_data(&key_bytes, &encryption_key)?;
+        fs::write(path, &encrypted).map_err(|e| AppError::IO(crate::error::ErrIO::IoError(e)))?;
 
         // Nettoyer les données sensibles
         key_bytes.zeroize();
@@ -71,13 +71,13 @@ fn save_signing_key_encrypted(
     }
 
     // Fonction pour charger une clé de signature chiffrée
-fn load_signing_key_encrypted(
-    path: &str,
-    user: &User,
-    password: &str,
-) -> Result<SigningKey, AppError> {
-    let mut pw = password.to_string();
-    let mut encryption_key = derive_key_from_password(&mut pw, user)?;
+    fn load_signing_key_encrypted(
+        path: &str,
+        user: &User,
+        password: &str,
+    ) -> Result<SigningKey, AppError> {
+        let mut pw = password.to_string();
+        let mut encryption_key = derive_key_from_password(&mut pw, user)?;
 
         // Lire et déchiffrer la clé
         let encrypted =

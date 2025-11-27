@@ -15,9 +15,9 @@ use crate::{
 };
 
 use base64::{Engine as _, engine::general_purpose};
+use borsh;
 use ed25519_dalek::{SigningKey, VerifyingKey};
 use zeroize::Zeroize;
-use borsh;
 
 pub struct KeyService<F: FileSystem> {
     fs: F,
@@ -84,7 +84,8 @@ impl<F: FileSystem> KeyService<F> {
         raw_pw.zeroize();
         let auth_tag = authenticate_aad(&encryption_key, encoded.as_bytes())?;
         let stored = StoredVerifyingKey { encoded, auth_tag };
-        let payload = borsh::to_vec(&stored).map_err(|_| AppError::Encrypt(ErrEncrypt::BorshError))?;
+        let payload =
+            borsh::to_vec(&stored).map_err(|_| AppError::Encrypt(ErrEncrypt::BorshError))?;
         self.fs.write_file(&vk_path_str, &payload)?;
         encryption_key.zeroize();
 
@@ -132,7 +133,11 @@ impl<F: FileSystem> KeyService<F> {
         }
     }
 
-    pub fn load_verifying_key(&self, user: &User, raw_pw: &mut str) -> Result<VerifyingKey, AppError> {
+    pub fn load_verifying_key(
+        &self,
+        user: &User,
+        raw_pw: &mut str,
+    ) -> Result<VerifyingKey, AppError> {
         let base_dir = self.get_keys_directory(user)?;
         let base_path = std::path::Path::new(&base_dir);
         let vk_path = base_path.join("verifying_key.vk");

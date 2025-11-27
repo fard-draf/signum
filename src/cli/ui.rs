@@ -1,9 +1,7 @@
 use crate::error::{AppError, ErrInquire, ErrPath};
 use inquire::{Confirm, Password, Select, Text};
 use std::{
-    env,
-    fmt,
-    fs,
+    env, fmt, fs,
     path::{Path, PathBuf},
 };
 
@@ -142,10 +140,7 @@ fn build_nav_items(current: &Path) -> Result<Vec<NavItem>, AppError> {
     for entry in fs::read_dir(current).map_err(|_| AppError::Path(ErrPath::InvalidPath))? {
         let entry = entry.map_err(|_| AppError::Path(ErrPath::InvalidPath))?;
         let path = entry.path();
-        let name = entry
-            .file_name()
-            .to_string_lossy()
-            .into_owned();
+        let name = entry.file_name().to_string_lossy().into_owned();
 
         let file_type = entry
             .file_type()
