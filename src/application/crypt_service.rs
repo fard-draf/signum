@@ -1,9 +1,8 @@
 use rand::RngCore;
 use std::env;
 use std::fs::{self, OpenOptions};
-use std::io::{ErrorKind, Write};
+use std::io::{stdout, ErrorKind, Write};
 use std::path::{Component, Path, PathBuf};
-use std::time::Instant;
 use zeroize::Zeroize;
 
 use crate::{
@@ -128,7 +127,6 @@ impl CryptService {
         temp_pw.zeroize();
 
         let total_bytes = stats.total_bytes.max(1);
-        let start = Instant::now();
         let mut processed: u64 = 0;
 
         for entry in walk_files(&input_root)? {
@@ -166,7 +164,7 @@ impl CryptService {
                 let _ = fs::remove_file(&entry);
             }
             processed = processed.saturating_add(data.len() as u64);
-            self.print_progress(processed, total_bytes, start.elapsed(), "Chiffrement");
+            self.print_progress(processed, total_bytes, "Chiffrement");
         }
 
         key.zeroize();
@@ -215,7 +213,6 @@ impl CryptService {
         temp_pw.zeroize();
 
         let total_bytes = stats.total_bytes.max(1);
-        let start = Instant::now();
         let mut processed: u64 = 0;
 
         for entry in walk_files(&enc_root)? {
@@ -244,7 +241,7 @@ impl CryptService {
                 let _ = fs::remove_file(&entry);
             }
             processed = processed.saturating_add(data.len() as u64);
-            self.print_progress(processed, total_bytes, start.elapsed(), "Déchiffrement");
+            self.print_progress(processed, total_bytes, "Déchiffrement");
         }
 
         key.zeroize();
@@ -445,25 +442,17 @@ impl CryptService {
         &self,
         processed: u64,
         total: u64,
-        elapsed: std::time::Duration,
         label: &str,
     ) {
         if total == 0 {
             return;
         }
         let percent = (processed as f64 / total as f64 * 100.0).min(100.0);
-        let secs = elapsed.as_secs_f64().max(0.001);
-        let eta = if processed > 0 {
-            let rate = processed as f64 / secs;
-            let remaining = (total.saturating_sub(processed)) as f64 / rate;
-            remaining
-        } else {
-            0.0
-        };
-        println!(
-            "[{}] Progression: {:>5.1}% | Temps restant estimé: ~{:.1}s",
-            label, percent, eta
-        );
+        print!("\r[{}] Progression: {:>5.1}%", label, percent);
+        let _ = stdout().flush();
+        if percent >= 100.0 {
+            println!();
+        }
     }
 
     fn best_effort_wipe_file(&self, path: &Path) {
